@@ -1,16 +1,33 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0b0d10;
-  --card: #151a20;
-  --card-2: #1c232b;
-  --line: #2a323c;
-  --text: #eef2f6;
-  --muted: #9aa6b2;
-  --accent: #3ddc97;
-  --accent-ink: #062b1c;
-  --warn: #f5b84b;
-  --danger: #ff6b6b;
+  /* Dark: deep British racing green with cream type and brass accents. */
+  --bg: #0b1d15;
+  --card: #11281e;
+  --card-2: #173226;
+  --line: #2b4a3b;
+  --text: #f2ead7;
+  --muted: #a8b29f;
+  --accent: #c9a66b;
+  --accent-ink: #0b1d15;
+  --warn: #e0b66a;
+  --danger: #e07a6a;
+}
+
+/* Light: cream paper with British racing green and brass. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f3ecdc;
+    --card: #fbf7ee;
+    --card-2: #ece3cf;
+    --line: #d9ccb0;
+    --text: #1b2a21;
+    --muted: #6d6a58;
+    --accent: #0f4a30;
+    --accent-ink: #f5eedd;
+    --warn: #8a5a12;
+    --danger: #a3352a;
+  }
 }
 
 @theme inline {
@@ -28,7 +45,7 @@
 
 html {
   background: var(--bg);
-  color-scheme: dark;
+  color-scheme: light dark;
 }
 
 body {
@@ -36,6 +53,16 @@ body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Classic serif for headings, like a British motoring badge. */
+h1,
+h2 {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  letter-spacing: 0.01em;
+}
+h1 {
+  font-weight: 600;
 }
 
 input[type="number"]::-webkit-inner-spin-button,

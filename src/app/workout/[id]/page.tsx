@@ -194,7 +194,7 @@ function EntryCard({
       <div className="p-4 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <Link href={`/exercises/${ex.id}`} className="text-lg font-semibold">
+            <Link href={`/exercises/${ex.id}`} className="font-[Iowan_Old_Style,Palatino,Georgia,serif] text-lg font-semibold">
               {ex.name}
             </Link>
             <p className="text-sm text-muted">

@@ -6,11 +6,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Nicholasfit",
   description: "Personal training, body and nutrition tracker",
-  appleWebApp: { capable: true, title: "Nicholasfit", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "Nicholasfit", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d10",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f3ecdc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1d15" },
+  ],
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
