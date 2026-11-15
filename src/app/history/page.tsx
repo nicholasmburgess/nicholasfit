@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { formatDate, formatDuration, formatKg } from "@/lib/format";
-import { doneSetCount, volumeKg } from "@/lib/progression";
+import { formatDate, formatDuration } from "@/lib/format";
+import { workoutSummary } from "@/lib/progression";
 import { useWorkouts } from "@/lib/useWorkouts";
 
 export default function HistoryPage() {
@@ -38,9 +38,9 @@ export default function HistoryPage() {
                     </span>
                   </span>
                   <span className="text-right text-sm text-muted">
-                    {doneSetCount(w)} sets
+                    {workoutSummary(w)[0]}
                     <br />
-                    {formatKg(volumeKg(w))}
+                    {workoutSummary(w)[1]}
                   </span>
                 </Link>
               </li>

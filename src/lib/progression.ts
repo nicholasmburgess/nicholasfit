@@ -72,6 +72,7 @@ export function buildEntry(workouts: Workout[], exerciseId: string, target: Targ
     exerciseId,
     target,
     hint: s.hint,
+    goalReps: s.reps ?? undefined,
     sets: Array.from({ length: target.sets }, () => ({ weight: s.weight, reps: null, done: false })),
   };
 }
@@ -93,4 +94,16 @@ export function volumeKg(w: Workout): number {
 
 export function doneSetCount(w: Workout): number {
   return w.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+}
+
+/** Short right-hand summary for workout lists, e.g. "15 sets · 2,658 kg" or "20 min row". */
+export function workoutSummary(w: Workout): [string, string] {
+  const sets = doneSetCount(w);
+  const kg = volumeKg(w);
+  const minutes = w.entries
+    .filter((e) => getExercise(e.exerciseId)?.unit === "minutes")
+    .reduce((m, e) => m + e.sets.filter((s) => s.done).reduce((a, s) => a + (s.reps ?? 0), 0), 0);
+  const first = `${sets} ${sets === 1 ? "set" : "sets"}`;
+  const second = kg > 0 ? `${Math.round(kg).toLocaleString("en-AU")} kg` : minutes > 0 ? `${minutes} min` : "";
+  return [first, second];
 }

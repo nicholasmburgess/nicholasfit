@@ -24,6 +24,7 @@ export default function WorkoutPage() {
   const [picking, setPicking] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const dirty = useRef(false);
+  const latest = useRef<Workout | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -33,20 +34,63 @@ export default function WorkoutPage() {
     })();
   }, [id]);
 
-  // Save shortly after each change.
+  latest.current = workout ?? null;
+
+  async function flush() {
+    const w = latest.current;
+    if (!w || !dirty.current) return;
+    dirty.current = false;
+    try {
+      await store.saveWorkout(w);
+      setSaveError(null);
+    } catch (e) {
+      dirty.current = true;
+      setSaveError(e instanceof Error ? e.message : "Could not save");
+    }
+  }
+  const flushRef = useRef(flush);
+  flushRef.current = flush;
+
+  // Save shortly after typing; ticks save straight away (see toggleDone).
   useEffect(() => {
     if (!workout || !dirty.current) return;
-    const t = setTimeout(async () => {
-      try {
-        await store.saveWorkout(workout);
-        dirty.current = false;
-        setSaveError(null);
-      } catch (e) {
-        setSaveError(e instanceof Error ? e.message : "Could not save");
-      }
-    }, 400);
+    const t = setTimeout(() => flushRef.current(), 400);
     return () => clearTimeout(t);
   }, [workout]);
+
+  // Never lose the last change when leaving the page or the phone locks.
+  useEffect(() => {
+    const onHide = () => document.visibilityState === "hidden" && flushRef.current();
+    const onPageHide = () => flushRef.current();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onPageHide);
+      flushRef.current();
+    };
+  }, []);
+
+  // Keep the screen awake during an unfinished workout.
+  const active = !!workout && !workout.finishedAt;
+  useEffect(() => {
+    if (!active || !("wakeLock" in navigator)) return;
+    let lock: WakeLockSentinel | null = null;
+    const acquire = async () => {
+      try {
+        lock = await navigator.wakeLock.request("screen");
+      } catch {
+        // Not allowed right now (e.g. low battery mode).
+      }
+    };
+    const onVisible = () => document.visibilityState === "visible" && acquire();
+    acquire();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      lock?.release().catch(() => {});
+    };
+  }, [active]);
 
   if (workout === undefined) return <p className="pt-10 text-center text-muted">Loading…</p>;
   if (workout === null)
@@ -59,7 +103,11 @@ export default function WorkoutPage() {
   const w = workout;
   const update = (fn: (w: Workout) => Workout) => {
     dirty.current = true;
-    setWorkout((prev) => (prev ? fn(prev) : prev));
+    setWorkout((prev) => {
+      const next = prev ? fn(prev) : prev;
+      latest.current = next ?? null;
+      return next;
+    });
   };
   const updateEntry = (i: number, fn: (e: Entry) => Entry) =>
     update((w) => ({ ...w, entries: w.entries.map((e, j) => (j === i ? fn(e) : e)) }));
@@ -80,7 +128,8 @@ export default function WorkoutPage() {
     const e = w.entries[ei];
     const s = e.sets[si];
     const done = !s.done;
-    changeSet(ei, si, { done, reps: s.reps ?? e.target.repMin });
+    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin });
+    setTimeout(() => flushRef.current(), 0);
     if (done && e.target.restSec > 0) setRest({ endsAt: Date.now() + e.target.restSec * 1000, total: e.target.restSec });
   }
 
@@ -238,7 +287,7 @@ function EntryCard({
             index={si}
             set={s}
             showWeight={!!wLabel}
-            repsPlaceholder={`${target.repMin}–${target.repMax}`}
+            repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
             onChange={(patch) => onChangeSet(si, patch)}
             onToggle={() => onToggle(si)}
           />

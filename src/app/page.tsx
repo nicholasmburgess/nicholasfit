@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card } from "@/components/Card";
-import { formatDate, formatDuration, formatKg, startOfWeek } from "@/lib/format";
-import { doneSetCount, nextRoutineKey, volumeKg } from "@/lib/progression";
+import { formatDate, formatDuration, startOfWeek } from "@/lib/format";
+import { doneSetCount, nextRoutineKey, workoutSummary } from "@/lib/progression";
 import { ROUTINES, getRoutine } from "@/lib/routines";
 import { startWorkout } from "@/lib/start";
 import { hasSupabase } from "@/lib/supabase/config";
@@ -108,9 +108,9 @@ export default function Home() {
                     </span>
                   </span>
                   <span className="text-right text-sm text-muted">
-                    {doneSetCount(w)} sets
+                    {workoutSummary(w)[0]}
                     <br />
-                    {formatKg(volumeKg(w))}
+                    {workoutSummary(w)[1]}
                   </span>
                 </Link>
               </li>

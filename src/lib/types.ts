@@ -19,6 +19,8 @@ export type Entry = {
   sets: SetLog[];
   /** Suggestion shown when the workout was created, e.g. "Add 2.5 kg". */
   hint?: string;
+  /** Reps to aim for this session; used when a set is ticked without typing reps. */
+  goalReps?: number;
 };
 
 export type Workout = {
