@@ -27,7 +27,7 @@ const SYSTEM = `You estimate the nutrition of meals for a personal fitness app. 
 
 Break the meal into its main components and estimate a realistic portion for each from visual cues (plate size, cutlery, hands, packaging) or typical Australian serving sizes. Include cooking oil, sauces, dressings and drinks when they are visible or mentioned, because these are the most commonly missed calories. If the description gives amounts or brands, trust them over the photo.
 
-Use standard food composition values. Give whole numbers for kcal and grams to one decimal at most. Set confidence to low when the portion or ingredients are mostly guesswork. If the image is not food, return no items and say so in the note.`;
+Photo-based estimates are known to under-count energy by about a third, mostly from hidden fat, so when a portion or added fat is uncertain, pick the higher plausible amount rather than the lower one. Use standard food composition values. Give whole numbers for kcal and grams to one decimal at most. Set confidence to low when the portion or ingredients are mostly guesswork. If the image is not food, return no items and say so in the note.`;
 
 function client() {
   return new Anthropic();

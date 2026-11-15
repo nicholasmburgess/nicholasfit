@@ -27,7 +27,7 @@ export default function WorkoutPage() {
   const [rest, setRest] = useState<{ endsAt: number; total: number } | null>(null);
   const [picking, setPicking] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
-  const [editing, setEditing] = useState<{ ei: number; si: number; field: "weight" | "reps" } | null>(null);
+  const [editing, setEditing] = useState<{ ei: number; si: number; field: "weight" | "reps"; thenComplete?: boolean } | null>(null);
   const [editMode, setEditMode] = useState(false);
   const justFinished = useSearchParams().get("done") === "1";
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -132,11 +132,17 @@ export default function WorkoutPage() {
     });
   }
 
-  function toggleDone(ei: number, si: number) {
+  function toggleDone(ei: number, si: number, weight?: number) {
     const e = w.entries[ei];
     const s = e.sets[si];
     const done = !s.done;
-    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin });
+    const ex = getExercise(e.exerciseId);
+    // A loaded exercise ticked without a weight can't progress next time, so ask for the weight first.
+    if (done && weight === undefined && s.weight == null && ex && weightLabel(ex)) {
+      setEditing({ ei, si, field: "weight", thenComplete: true });
+      return;
+    }
+    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}) });
     setTimeout(() => flushRef.current(), 0);
     if (done && e.target.restSec > 0) setRest({ endsAt: Date.now() + e.target.restSec * 1000, total: e.target.restSec });
   }
@@ -269,7 +275,7 @@ export default function WorkoutPage() {
       {editing && editingEntry && editingEx && (
         <NumberSheet
           key={`${editing.ei}-${editing.si}-${editing.field}`}
-          title={`${editingEx.name} · set ${editing.si + 1} · ${editing.field === "weight" ? "weight" : unitLabel(editingEx.unit)}`}
+          title={editing.thenComplete ? `What weight did you use? (${editingEx.name})` : `${editingEx.name} · set ${editing.si + 1} · ${editing.field === "weight" ? "weight" : unitLabel(editingEx.unit)}`}
           unit={editing.field === "weight" ? weightLabel(editingEx) : unitLabel(editingEx.unit)}
           initial={
             editing.field === "weight"
@@ -289,7 +295,8 @@ export default function WorkoutPage() {
           }
           onClose={() => setEditing(null)}
           onDone={(v) => {
-            changeSet(editing.ei, editing.si, editing.field === "weight" ? { weight: v } : { reps: v });
+            if (editing.thenComplete) toggleDone(editing.ei, editing.si, v);
+            else changeSet(editing.ei, editing.si, editing.field === "weight" ? { weight: v } : { reps: v });
             setEditing(null);
           }}
         />
