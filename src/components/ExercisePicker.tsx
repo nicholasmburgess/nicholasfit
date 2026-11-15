@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { EXERCISES, PATTERNS, type Pattern } from "@/lib/exercises";
 
-export function ExercisePicker({ onPick, onClose, prefer, title }: { onPick: (id: string) => void; onClose: () => void; prefer?: Pattern; title?: string }) {
+export function ExercisePicker({ onPick, onClose, prefer, title, note }: { onPick: (id: string) => void; onClose: () => void; prefer?: Pattern; title?: string; note?: (id: string) => string | undefined }) {
   const [q, setQ] = useState("");
   const list = EXERCISES.filter((e) => e.name.toLowerCase().includes(q.toLowerCase()));
   const order = prefer ? [prefer, ...PATTERNS.filter((p) => p !== prefer)] : PATTERNS;
@@ -36,6 +36,7 @@ export function ExercisePicker({ onPick, onClose, prefer, title }: { onPick: (id
                   <span>
                     <span className="block">{e.name}</span>
                     <span className="text-xs capitalize text-muted">{e.load}</span>
+                    {note?.(e.id) && <span className="block text-xs text-warn">{note(e.id)}</span>}
                   </span>
                 </button>
               ))}

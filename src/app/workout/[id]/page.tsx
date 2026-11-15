@@ -11,6 +11,7 @@ import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { NumberSheet } from "@/components/NumberSheet";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
 import { describePlates } from "@/lib/plates";
+import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
 import { buildEntry, exerciseHistory } from "@/lib/progression";
@@ -140,6 +141,28 @@ export default function WorkoutPage() {
     if (done && e.target.restSec > 0) setRest({ endsAt: Date.now() + e.target.restSec * 1000, total: e.target.restSec });
   }
 
+  /** Build an entry for a new or swapped exercise, matching loaded dumbbell/kettlebell weights where possible. */
+  function placeEntry(exerciseId: string, target: Entry["target"], index: number, replace: boolean, slot?: string): Entry | null {
+    const entry = buildEntry(history, exerciseId, target, slot);
+    if (!isAdjustable(exerciseId)) return entry;
+    const own = planAdjustable(w.entries, entry, index, replace);
+    const ownSetups = adjustableSetups((() => { const c = [...w.entries]; c.splice(index, replace ? 1 : 0, entry); return c; })()).length;
+    let result = entry;
+    if (ownSetups > MAX_ADJUSTABLE_SETUPS && own.weight != null && own.setups < ownSetups) {
+      result = { ...entry, sets: entry.sets.map((x) => ({ ...x, weight: own.weight })), hint: `${own.weight} kg to match your loaded ${getExercise(exerciseId)?.load}s (saves a weight change)` };
+    }
+    if (Math.min(own.setups, ownSetups) > MAX_ADJUSTABLE_SETUPS && !confirm("This needs a third dumbbell/kettlebell weight change. Add it anyway?")) return null;
+    return result;
+  }
+
+  function pickerNote(index: number, replace: boolean) {
+    return (id: string) => {
+      if (!isAdjustable(id)) return undefined;
+      const probe = buildEntry(history, id, DEFAULT_TARGET);
+      return planAdjustable(w.entries, probe, index, replace).setups > MAX_ADJUSTABLE_SETUPS ? "Needs a 3rd weight change" : undefined;
+    };
+  }
+
   async function finish() {
     const unticked = w.entries.reduce((n, e) => n + e.sets.filter((s) => !s.done).length, 0);
     if (unticked > 0 && !confirm(`${unticked} ${unticked === 1 ? "set isn't" : "sets aren't"} ticked and won't count. Finish anyway?`)) return;
@@ -162,6 +185,7 @@ export default function WorkoutPage() {
 
   const doneSets = w.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
   const readOnly = !!w.finishedAt && !editMode;
+  const setups = adjustableSetups(w.entries);
   const editingEntry = editing ? w.entries[editing.ei] : null;
   const editingEx = editingEntry ? getExercise(editingEntry.exerciseId) : undefined;
 
@@ -185,6 +209,15 @@ export default function WorkoutPage() {
           </Button>
         )}
       </header>
+
+      {setups.length > 0 && !readOnly && (
+        <p className={`-mt-2 text-xs ${setups.length > MAX_ADJUSTABLE_SETUPS ? "text-warn" : "text-muted"}`}>
+          Dumbbell/kettlebell set-ups: {setups.length} of {MAX_ADJUSTABLE_SETUPS}
+          {setups.length > MAX_ADJUSTABLE_SETUPS ? " · over your limit" : ""}
+          {" · "}
+          {setups.map((x) => (x.weight != null ? `${x.weight} kg ${x.load}` : `${x.load} (weight not set)`)).join(", then ")}
+        </p>
+      )}
 
       {justFinished && w.finishedAt && !editMode && <WorkoutSummary workout={w} history={history} />}
 
@@ -221,10 +254,14 @@ export default function WorkoutPage() {
           title={`Swap ${getExercise(w.entries[swapping].exerciseId)?.name ?? "exercise"} for:`}
           prefer={getExercise(w.entries[swapping].exerciseId)?.pattern}
           onClose={() => setSwapping(null)}
+          note={pickerNote(swapping, true)}
           onPick={(exerciseId) => {
             const ei = swapping;
+            const old = w.entries[ei];
+            const entry = placeEntry(exerciseId, old.target, ei, true, old.slot ?? old.exerciseId);
+            if (!entry) return;
             setSwapping(null);
-            updateEntry(ei, (e) => buildEntry(history, exerciseId, e.target, e.slot ?? e.exerciseId));
+            updateEntry(ei, () => entry);
           }}
         />
       )}
@@ -242,6 +279,14 @@ export default function WorkoutPage() {
           step={editing.field === "weight" ? (editingEx.load === "barbell" || editingEx.load === "cable" ? 2.5 : 1) : editingEx.unit === "seconds" ? 5 : 1}
           bigStep={editing.field === "weight" ? (editingEx.load === "barbell" ? 10 : 5) : undefined}
           decimals={editing.field === "weight"}
+          presets={
+            editing.field === "weight" && isAdjustable(editingEntry.exerciseId)
+              ? [...new Map(adjustableSetups(w.entries.filter((_, i) => i !== editing.ei)).filter((x) => x.load === editingEx.load && x.weight != null).map((x) => [x.weight, x])).values()].map((x) => ({
+                  label: `Match ${x.weight} kg (${getExercise(x.exerciseId)?.name})`,
+                  value: x.weight as number,
+                }))
+              : undefined
+          }
           onClose={() => setEditing(null)}
           onDone={(v) => {
             changeSet(editing.ei, editing.si, editing.field === "weight" ? { weight: v } : { reps: v });
@@ -253,9 +298,12 @@ export default function WorkoutPage() {
       {picking && (
         <ExercisePicker
           onClose={() => setPicking(false)}
+          note={pickerNote(w.entries.length, false)}
           onPick={(exerciseId) => {
+            const entry = placeEntry(exerciseId, DEFAULT_TARGET, w.entries.length, false);
+            if (!entry) return;
             setPicking(false);
-            update((w) => ({ ...w, entries: [...w.entries, buildEntry(history, exerciseId, DEFAULT_TARGET)] }));
+            update((w) => ({ ...w, entries: [...w.entries, entry] }));
           }}
         />
       )}

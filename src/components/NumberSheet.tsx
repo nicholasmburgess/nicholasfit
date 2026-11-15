@@ -10,6 +10,7 @@ export function NumberSheet({
   step,
   bigStep,
   decimals,
+  presets,
   onDone,
   onClose,
 }: {
@@ -19,6 +20,7 @@ export function NumberSheet({
   step: number;
   bigStep?: number;
   decimals: boolean;
+  presets?: { label: string; value: number }[];
   onDone: (v: number) => void;
   onClose: () => void;
 }) {
@@ -53,6 +55,15 @@ export function NumberSheet({
           />
           <span className="text-lg text-muted">{unit}</span>
         </div>
+        {presets && presets.length > 0 && (
+          <div className="mb-2 flex flex-wrap justify-center gap-2">
+            {presets.map((p) => (
+              <button key={p.label} className="rounded-full border border-accent/40 px-3 py-1.5 text-sm text-accent" onClick={() => set(p.value)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className={`grid gap-2 ${bigStep ? "grid-cols-4" : "grid-cols-2"}`}>
           {bigStep && (
             <button className={btn} onClick={() => set(value - bigStep)}>

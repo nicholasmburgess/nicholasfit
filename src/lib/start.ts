@@ -1,3 +1,4 @@
+import { fitAdjustable } from "./adjustable";
 import { buildEntry } from "./progression";
 import { getRoutine } from "./routines";
 import { newId, store } from "./store";
@@ -11,7 +12,7 @@ export async function startWorkout(history: Workout[], routineKey: string | null
     templateKey: routine?.key ?? null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
-    entries: routine ? routine.items.map((i) => buildEntry(history, resolveSwap(history, routine.key, i.exerciseId), i.target, i.exerciseId)) : [],
+    entries: routine ? fitAdjustable(routine.items.map((i) => buildEntry(history, resolveSwap(history, routine.key, i.exerciseId), i.target, i.exerciseId))) : [],
     notes: "",
   };
   await store.saveWorkout(w);
