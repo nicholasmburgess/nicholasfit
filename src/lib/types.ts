@@ -34,3 +34,40 @@ export type Workout = {
   entries: Entry[];
   notes: string;
 };
+
+export type MealItem = {
+  name: string;
+  portion: string;
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+};
+
+export type Meal = {
+  id: string;
+  eatenAt: string;
+  description: string;
+  items: MealItem[];
+  kcal: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  /** How sure the estimate is: low, medium or high. */
+  confidence: string | null;
+};
+
+export type WeightEntry = {
+  id: string;
+  measuredAt: string;
+  kg: number;
+  source: "manual" | "withings";
+};
+
+export type Sex = "male" | "female";
+
+export type Profile = {
+  heightCm: number;
+  sex: Sex;
+  birthYear: number;
+};

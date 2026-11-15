@@ -12,7 +12,7 @@ import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
 import { useWorkouts } from "@/lib/useWorkouts";
 import { WEEKLY_GOAL, totals, weekStreak } from "@/lib/stats";
-
+import { FoodToday } from "@/components/FoodToday";
 
 export default function Home() {
   const router = useRouter();
@@ -86,6 +86,8 @@ export default function Home() {
           ))}
         </div>
       </Card>
+
+      <FoodToday />
 
       {finished.length > 0 && (
         <Link href="/progress" className="flex items-center justify-between rounded-2xl border border-line bg-card px-4 py-3">
