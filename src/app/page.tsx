@@ -11,8 +11,8 @@ import { startWorkout } from "@/lib/start";
 import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
 import { useWorkouts } from "@/lib/useWorkouts";
+import { WEEKLY_GOAL, totals, weekStreak } from "@/lib/stats";
 
-const WEEKLY_GOAL = 3;
 
 export default function Home() {
   const router = useRouter();
@@ -86,6 +86,18 @@ export default function Home() {
           ))}
         </div>
       </Card>
+
+      {finished.length > 0 && (
+        <Link href="/progress" className="flex items-center justify-between rounded-2xl border border-line bg-card px-4 py-3">
+          <span>
+            <span className="block font-semibold">Your progress</span>
+            <span className="text-sm text-muted">
+              {totals(workouts).workouts} workouts · {weekStreak(workouts)} week streak
+            </span>
+          </span>
+          <span className="text-accent">›</span>
+        </Link>
+      )}
 
       <section>
         <div className="mb-2 flex items-baseline justify-between">
