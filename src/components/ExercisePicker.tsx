@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { EXERCISES, PATTERNS } from "@/lib/exercises";
+import { EXERCISES, PATTERNS, type Pattern } from "@/lib/exercises";
 
-export function ExercisePicker({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
+export function ExercisePicker({ onPick, onClose, prefer, title }: { onPick: (id: string) => void; onClose: () => void; prefer?: Pattern; title?: string }) {
   const [q, setQ] = useState("");
   const list = EXERCISES.filter((e) => e.name.toLowerCase().includes(q.toLowerCase()));
+  const order = prefer ? [prefer, ...PATTERNS.filter((p) => p !== prefer)] : PATTERNS;
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-bg/98 px-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      {title && <p className="mx-auto w-full max-w-md pb-2 text-sm text-muted">{title}</p>}
       <div className="mx-auto flex w-full max-w-md items-center gap-2 pb-3">
         <input
           autoFocus
@@ -21,7 +23,7 @@ export function ExercisePicker({ onPick, onClose }: { onPick: (id: string) => vo
         </button>
       </div>
       <div className="mx-auto w-full max-w-md flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-        {PATTERNS.map((p) => {
+        {order.map((p) => {
           const items = list.filter((e) => e.pattern === p);
           if (!items.length) return null;
           return (

@@ -21,6 +21,8 @@ export type Entry = {
   hint?: string;
   /** Reps to aim for this session; used when a set is ticked without typing reps. */
   goalReps?: number;
+  /** The routine's original exercise when this one was swapped in, e.g. Goblet_Squat for Barbell_Squat. */
+  slot?: string;
 };
 
 export type Workout = {

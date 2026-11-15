@@ -66,13 +66,14 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
   return { weight, reps: Math.min(target.repMax, Math.max(target.repMin, minReps + 1)), hint: `Same weight, aim for ${Math.min(target.repMax, Math.max(target.repMin, minReps + 1))} reps or more` };
 }
 
-export function buildEntry(workouts: Workout[], exerciseId: string, target: Target): Entry {
+export function buildEntry(workouts: Workout[], exerciseId: string, target: Target, slot?: string): Entry {
   const s = suggest(workouts, exerciseId, target);
   return {
     exerciseId,
     target,
     hint: s.hint,
     goalReps: s.reps ?? undefined,
+    ...(slot && slot !== exerciseId ? { slot } : {}),
     sets: Array.from({ length: target.sets }, () => ({ weight: s.weight, reps: null, done: false })),
   };
 }

@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { ExercisePicker } from "@/components/ExercisePicker";
 import { RestTimer } from "@/components/RestTimer";
 import { SetRow } from "@/components/SetRow";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
+import { NumberSheet } from "@/components/NumberSheet";
+import { WorkoutSummary } from "@/components/WorkoutSummary";
+import { describePlates } from "@/lib/plates";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
 import { buildEntry, exerciseHistory } from "@/lib/progression";
@@ -22,6 +25,10 @@ export default function WorkoutPage() {
   const [history, setHistory] = useState<Workout[]>([]);
   const [rest, setRest] = useState<{ endsAt: number; total: number } | null>(null);
   const [picking, setPicking] = useState(false);
+  const [swapping, setSwapping] = useState<number | null>(null);
+  const [editing, setEditing] = useState<{ ei: number; si: number; field: "weight" | "reps" } | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const justFinished = useSearchParams().get("done") === "1";
   const [saveError, setSaveError] = useState<string | null>(null);
   const dirty = useRef(false);
   const latest = useRef<Workout | null>(null);
@@ -134,10 +141,16 @@ export default function WorkoutPage() {
   }
 
   async function finish() {
+    const unticked = w.entries.reduce((n, e) => n + e.sets.filter((s) => !s.done).length, 0);
+    if (unticked > 0 && !confirm(`${unticked} ${unticked === 1 ? "set isn't" : "sets aren't"} ticked and won't count. Finish anyway?`)) return;
     const done = { ...w, finishedAt: new Date().toISOString() };
     dirty.current = false;
+    latest.current = done;
+    setWorkout(done);
+    setRest(null);
     await store.saveWorkout(done);
-    router.push("/");
+    router.replace(`/workout/${w.id}?done=1`);
+    window.scrollTo(0, 0);
   }
 
   async function remove() {
@@ -148,6 +161,9 @@ export default function WorkoutPage() {
   }
 
   const doneSets = w.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+  const readOnly = !!w.finishedAt && !editMode;
+  const editingEntry = editing ? w.entries[editing.ei] : null;
+  const editingEx = editingEntry ? getExercise(editingEntry.exerciseId) : undefined;
 
   return (
     <main className="space-y-4">
@@ -159,12 +175,18 @@ export default function WorkoutPage() {
             {w.finishedAt ? ` · ${formatDuration(w.startedAt, w.finishedAt)} · completed` : <Elapsed since={w.startedAt} />}
           </p>
         </div>
-        {!w.finishedAt && (
+        {!w.finishedAt ? (
           <Button onClick={finish} disabled={doneSets === 0}>
             Finish
           </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => setEditMode((m) => !m)}>
+            {editMode ? "Done" : "Edit"}
+          </Button>
         )}
       </header>
+
+      {justFinished && w.finishedAt && !editMode && <WorkoutSummary workout={w} history={history} />}
 
       {saveError && <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">Not saved: {saveError}</p>}
 
@@ -173,20 +195,60 @@ export default function WorkoutPage() {
           key={`${e.exerciseId}-${ei}`}
           entry={e}
           last={exerciseHistory(history, e.exerciseId)[0]?.sets}
-          onChangeSet={(si, patch) => changeSet(ei, si, patch)}
+          readOnly={readOnly}
+          onEdit={(si, field) => setEditing({ ei, si, field })}
           onToggle={(si) => toggleDone(ei, si)}
+          onSwap={() => setSwapping(ei)}
           onAddSet={() => updateEntry(ei, (x) => ({ ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] }))}
           onRemoveSet={() => updateEntry(ei, (x) => ({ ...x, sets: x.sets.slice(0, -1) }))}
           onRemove={() => update((w) => ({ ...w, entries: w.entries.filter((_, j) => j !== ei) }))}
         />
       ))}
 
-      <Button variant="secondary" className="w-full" onClick={() => setPicking(true)}>
-        + Add exercise
-      </Button>
-      <Button variant="danger" className="w-full" onClick={remove}>
-        {w.finishedAt ? "Delete workout" : "Discard workout"}
-      </Button>
+      {!readOnly && (
+        <>
+          <Button variant="secondary" className="w-full" onClick={() => setPicking(true)}>
+            + Add exercise
+          </Button>
+          <Button variant="danger" className="w-full" onClick={remove}>
+            {w.finishedAt ? "Delete workout" : "Discard workout"}
+          </Button>
+        </>
+      )}
+
+      {swapping !== null && (
+        <ExercisePicker
+          title={`Swap ${getExercise(w.entries[swapping].exerciseId)?.name ?? "exercise"} for:`}
+          prefer={getExercise(w.entries[swapping].exerciseId)?.pattern}
+          onClose={() => setSwapping(null)}
+          onPick={(exerciseId) => {
+            const ei = swapping;
+            setSwapping(null);
+            updateEntry(ei, (e) => buildEntry(history, exerciseId, e.target, e.slot ?? e.exerciseId));
+          }}
+        />
+      )}
+
+      {editing && editingEntry && editingEx && (
+        <NumberSheet
+          key={`${editing.ei}-${editing.si}-${editing.field}`}
+          title={`${editingEx.name} · set ${editing.si + 1} · ${editing.field === "weight" ? "weight" : unitLabel(editingEx.unit)}`}
+          unit={editing.field === "weight" ? weightLabel(editingEx) : unitLabel(editingEx.unit)}
+          initial={
+            editing.field === "weight"
+              ? (editingEntry.sets[editing.si].weight ?? editingEntry.sets.findLast((x) => x.weight != null)?.weight ?? (editingEx.load === "barbell" ? 20 : 0))
+              : (editingEntry.sets[editing.si].reps ?? editingEntry.goalReps ?? editingEntry.target.repMin)
+          }
+          step={editing.field === "weight" ? (editingEx.load === "barbell" || editingEx.load === "cable" ? 2.5 : 1) : editingEx.unit === "seconds" ? 5 : 1}
+          bigStep={editing.field === "weight" ? (editingEx.load === "barbell" ? 10 : 5) : undefined}
+          decimals={editing.field === "weight"}
+          onClose={() => setEditing(null)}
+          onDone={(v) => {
+            changeSet(editing.ei, editing.si, editing.field === "weight" ? { weight: v } : { reps: v });
+            setEditing(null);
+          }}
+        />
+      )}
 
       {picking && (
         <ExercisePicker
@@ -216,16 +278,20 @@ function Elapsed({ since }: { since: string }) {
 function EntryCard({
   entry,
   last,
-  onChangeSet,
+  readOnly,
+  onEdit,
   onToggle,
+  onSwap,
   onAddSet,
   onRemoveSet,
   onRemove,
 }: {
   entry: Entry;
   last?: SetLog[];
-  onChangeSet: (si: number, patch: Partial<SetLog>) => void;
+  readOnly: boolean;
+  onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
+  onSwap: () => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
   onRemove: () => void;
@@ -236,6 +302,7 @@ function EntryCard({
   const { target } = entry;
   const unit = unitLabel(ex.unit);
   const wLabel = weightLabel(ex);
+  const plateWeight = (entry.sets.find((s) => !s.done) ?? entry.sets.at(-1))?.weight ?? null;
   const rest = target.restSec >= 60 ? `${Math.floor(target.restSec / 60)}:${String(target.restSec % 60).padStart(2, "0")}` : `${target.restSec}s`;
 
   return (
@@ -255,8 +322,8 @@ function EntryCard({
             {showDemo ? "Hide demo" : "How to"}
           </button>
         </div>
-        {entry.hint && <p className="mt-2 text-sm text-accent">{entry.hint}</p>}
-        {last && (
+        {entry.hint && !readOnly && <p className="mt-2 text-sm text-accent">{entry.hint}</p>}
+        {last && !readOnly && (
           <p className="mt-1 text-xs text-muted">
             Last time: {last.map((s) => (s.weight ? `${s.weight}×${s.reps}` : `${s.reps}`)).join(", ")}
           </p>
@@ -288,11 +355,18 @@ function EntryCard({
             set={s}
             showWeight={!!wLabel}
             repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
-            onChange={(patch) => onChangeSet(si, patch)}
+            readOnly={readOnly}
+            onEdit={(field) => onEdit(si, field)}
             onToggle={() => onToggle(si)}
           />
         ))}
+        {ex.load === "barbell" && plateWeight != null && !readOnly && (
+          <p className="pt-1 text-xs text-muted">
+            {plateWeight} kg · {describePlates(plateWeight)}
+          </p>
+        )}
       </div>
+      {!readOnly && (
       <div className="flex border-t border-line text-sm">
         <button className="flex-1 py-2.5 text-accent" onClick={onAddSet}>
           + Set
@@ -300,10 +374,14 @@ function EntryCard({
         <button className="flex-1 py-2.5 text-muted disabled:opacity-40" onClick={onRemoveSet} disabled={entry.sets.length <= 1}>
           − Set
         </button>
+        <button className="flex-1 py-2.5 text-muted" onClick={onSwap}>
+          Swap
+        </button>
         <button className="flex-1 py-2.5 text-muted" onClick={onRemove}>
           Remove
         </button>
       </div>
+      )}
     </Card>
   );
 }
