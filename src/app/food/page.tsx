@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ProfileForm, WeightForm } from "@/components/BodySetup";
 import { AiStatus } from "@/components/AiStatus";
 import { Card } from "@/components/Card";
-import { MealLogger } from "@/components/MealLogger";
+import { MealLogger, recentMeals } from "@/components/MealLogger";
 import { foodError, foodStore } from "@/lib/food-store";
 import { SOURCES, currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
 import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
@@ -39,19 +39,23 @@ export default function FoodPage() {
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [editing, setEditing] = useState<"profile" | "weight" | null>(null);
   const [checkin, setCheckin] = useState<Checkin | null>(null);
+  const [recent, setRecent] = useState<Meal[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { start, end } = dayRange(offset);
     try {
       const cr = checkinRange();
-      const [m, p, w, past] = await Promise.all([
+      const since = new Date(Date.now() - 30 * 86400e3).toISOString();
+      const [m, p, w, past, lately] = await Promise.all([
         foodStore.listMeals(start.toISOString(), end.toISOString()),
         foodStore.getProfile(),
         foodStore.listWeights(),
         foodStore.listMeals(cr.start.toISOString(), cr.end.toISOString()),
+        foodStore.listMeals(since, new Date(Date.now() + 86400e3).toISOString()),
       ]);
       setCheckin(p ? weeklyCheckin(p, w, past) : null);
+      setRecent(recentMeals(lately));
       setMeals(m);
       setProfile(p);
       setWeights(w);
@@ -160,7 +164,7 @@ export default function FoodPage() {
         </Card>
       )}
 
-      <MealLogger key={offset} eatenAt={eatenAt} onSave={(m) => run(() => foodStore.saveMeal(m))} />
+      <MealLogger key={offset} eatenAt={eatenAt} recent={recent} onSave={(m) => run(() => foodStore.saveMeal(m))} />
 
       <section>
         <h2 className="mb-2 font-semibold">Meals</h2>
