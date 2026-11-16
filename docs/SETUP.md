@@ -36,6 +36,21 @@ You can do step 2 first to try the app straight away in demo mode, then add Supa
 
 In Safari tap the **Share** button, then **Add to Home Screen**. It opens full screen like a normal app. You'll need to sign in once more inside the home-screen app.
 
+## 6. Food logging (Phase 2)
+
+1. **Database tables:** in Supabase, open **SQL Editor**, click **New query**, paste the contents of `supabase/migrations/0002_food.sql`, and click **Run**. "Success. No rows returned" means it worked.
+2. **Claude key:** in console.anthropic.com create an API key. In Vercel, open **nicholasfit**, go to **Settings**, then **Environment Variables**, and add `ANTHROPIC_API_KEY` with the key as its value. The key lives only on the server and is never sent to the phone.
+3. **Spend limit:** in the Anthropic console, under Settings › Limits, set a monthly limit. $10 to $20 covers normal use.
+4. **Sign-ups off:** in Supabase, under Authentication › Sign In / Providers, turn off "Allow new users to sign up". Otherwise strangers could create accounts and use your credit.
+5. Redeploy in Vercel (Deployments › ⋯ › Redeploy) so the key is picked up. The Food tab then says whether the key works.
+
+## 7. Withings scale
+
+1. Run `supabase/migrations/0003_withings.sql` in the Supabase SQL Editor, the same way as step 6.
+2. At developer.withings.com create a "Public API integration" app. Set its callback URL to `https://nicholasfit.vercel.app/api/withings/callback`.
+3. In Vercel, add `WITHINGS_CLIENT_ID` and `WITHINGS_CLIENT_SECRET` as environment variables, then redeploy.
+4. In the app, go to Progress and tap **Connect Withings**. New weigh-ins sync each time you open Progress (at most every 10 minutes).
+
 ## Updating
 
 Every change merged into the `main` branch on GitHub deploys automatically to Vercel within a minute or two.

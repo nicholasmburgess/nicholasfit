@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Card } from "@/components/Card";
-import { formatDate, formatDuration, formatKg, startOfWeek } from "@/lib/format";
-import { doneSetCount, nextRoutineKey, volumeKg } from "@/lib/progression";
+import { formatDate, formatDuration, startOfWeek } from "@/lib/format";
+import { doneSetCount, nextRoutineKey, workoutSummary } from "@/lib/progression";
 import { ROUTINES, getRoutine } from "@/lib/routines";
 import { startWorkout } from "@/lib/start";
 import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
 import { useWorkouts } from "@/lib/useWorkouts";
-
-const WEEKLY_GOAL = 3;
+import { WEEKLY_GOAL, totals, weekStreak } from "@/lib/stats";
+import { FoodToday } from "@/components/FoodToday";
 
 export default function Home() {
   const router = useRouter();
@@ -87,6 +87,20 @@ export default function Home() {
         </div>
       </Card>
 
+      <FoodToday />
+
+      {finished.length > 0 && (
+        <Link href="/progress" className="flex items-center justify-between rounded-2xl border border-line bg-card px-4 py-3">
+          <span>
+            <span className="block font-semibold">Your progress</span>
+            <span className="text-sm text-muted">
+              {totals(workouts).workouts} workouts · {weekStreak(workouts)} week streak
+            </span>
+          </span>
+          <span className="text-accent">›</span>
+        </Link>
+      )}
+
       <section>
         <div className="mb-2 flex items-baseline justify-between">
           <h2 className="font-semibold">Recent</h2>
@@ -108,9 +122,9 @@ export default function Home() {
                     </span>
                   </span>
                   <span className="text-right text-sm text-muted">
-                    {doneSetCount(w)} sets
+                    {workoutSummary(w)[0]}
                     <br />
-                    {formatKg(volumeKg(w))}
+                    {workoutSummary(w)[1]}
                   </span>
                 </Link>
               </li>

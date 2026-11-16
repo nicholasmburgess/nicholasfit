@@ -25,6 +25,15 @@ export function exerciseHistory(workouts: Workout[], exerciseId: string): { work
  * - below the bottom of the range in each of the last two sessions at the same weight -> drop about 10%
  * - otherwise keep the weight and aim for one more rep
  */
+/** Conservative first-session weights for an untrained adult (kg; per hand for dumbbells). Cable stacks vary, so these are a rough guide. */
+const START_KG: Record<string, number> = {
+  Goblet_Squat: 12, Barbell_Squat: 20, "Barbell_Bench_Press_-_Medium_Grip": 20, Dumbbell_Bench_Press: 8, Incline_Dumbbell_Press: 6,
+  Seated_Cable_Rows: 20, "One-Arm_Dumbbell_Row": 10, Romanian_Deadlift: 30, Barbell_Deadlift: 40, Barbell_Hip_Thrust: 30,
+  Dumbbell_Shoulder_Press: 6, Standing_Military_Press: 20, "Wide-Grip_Lat_Pulldown": 25, "Close-Grip_Front_Lat_Pulldown": 25,
+  Split_Squat_with_Dumbbells: 6, Face_Pull: 10, "One-Arm_Kettlebell_Swings": 12, "Triceps_Pushdown_-_Rope_Attachment": 10,
+  Hammer_Curls: 6, Dumbbell_Bicep_Curl: 6, Pallof_Press: 5,
+};
+
 export function suggest(workouts: Workout[], exerciseId: string, target: Target): Suggestion {
   const ex = getExercise(exerciseId);
   const history = exerciseHistory(workouts, exerciseId);
@@ -35,6 +44,9 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
     if (unit === "minutes") return { weight: null, reps: target.repMin, hint: `Start with ${target.repMin} minutes at an easy pace` };
     if (unit === "seconds") return { weight: null, reps: target.repMin, hint: `Start with ${target.repMin}-second holds` };
     if (!ex || ex.increment === 0) return { weight: null, reps: target.repMin, hint: "First time: focus on form" };
+    const start = START_KG[exerciseId];
+    if (start != null)
+      return { weight: start, reps: target.repMin, hint: `First time: try ${start} kg${ex.load === "dumbbell" ? " each" : ""}. Go heavier on the next set if you could do 4 or more extra reps` };
     return { weight: null, reps: target.repMin, hint: "First time: pick a weight you could lift for 3 or more extra reps" };
   }
 
@@ -66,12 +78,14 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
   return { weight, reps: Math.min(target.repMax, Math.max(target.repMin, minReps + 1)), hint: `Same weight, aim for ${Math.min(target.repMax, Math.max(target.repMin, minReps + 1))} reps or more` };
 }
 
-export function buildEntry(workouts: Workout[], exerciseId: string, target: Target): Entry {
+export function buildEntry(workouts: Workout[], exerciseId: string, target: Target, slot?: string): Entry {
   const s = suggest(workouts, exerciseId, target);
   return {
     exerciseId,
     target,
     hint: s.hint,
+    goalReps: s.reps ?? undefined,
+    ...(slot && slot !== exerciseId ? { slot } : {}),
     sets: Array.from({ length: target.sets }, () => ({ weight: s.weight, reps: null, done: false })),
   };
 }
@@ -93,4 +107,16 @@ export function volumeKg(w: Workout): number {
 
 export function doneSetCount(w: Workout): number {
   return w.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
+}
+
+/** Short right-hand summary for workout lists, e.g. "15 sets · 2,658 kg" or "20 min row". */
+export function workoutSummary(w: Workout): [string, string] {
+  const sets = doneSetCount(w);
+  const kg = volumeKg(w);
+  const minutes = w.entries
+    .filter((e) => getExercise(e.exerciseId)?.unit === "minutes")
+    .reduce((m, e) => m + e.sets.filter((s) => s.done).reduce((a, s) => a + (s.reps ?? 0), 0), 0);
+  const first = `${sets} ${sets === 1 ? "set" : "sets"}`;
+  const second = kg > 0 ? `${Math.round(kg).toLocaleString("en-AU")} kg` : minutes > 0 ? `${minutes} min` : "";
+  return [first, second];
 }
