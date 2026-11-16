@@ -7,6 +7,7 @@ import { WEEKLY_GOAL, liftSeries, recentRecords, totals, weekStreak, weeklyTotal
 import { useWorkouts } from "@/lib/useWorkouts";
 import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
+import { WidgetCard } from "@/components/WidgetCard";
 import { WithingsCard } from "@/components/WithingsCard";
 import { WaistCard } from "@/components/WaistCard";
 import { CheckinCard } from "@/components/CheckinCard";
@@ -123,6 +124,7 @@ export default function ProgressPage() {
         </Card>
       )}
       <WaistCard />
+      <WidgetCard />
     </main>
   );
 }

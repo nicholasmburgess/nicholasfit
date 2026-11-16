@@ -71,6 +71,14 @@ export default function FoodPage() {
     load();
   }, [load]);
 
+  // Keep the widget's copy of today's targets current.
+  useEffect(() => {
+    if (!profile) return;
+    const w = currentWeight(weights);
+    const t = checkin?.ready ? checkin.targets : w ? dailyTargets(profile, w.kg) : null;
+    if (t) foodStore.saveTargets(t).catch(() => {});
+  }, [profile, weights, checkin]);
+
   if (meals === null || profile === undefined) return <p className="pt-10 text-center text-muted">Loading…</p>;
 
   const weight = currentWeight(weights);
