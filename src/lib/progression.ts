@@ -65,14 +65,19 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
     return { weight: next, reps: target.repMin, hint: `Up ${ex.increment} kg: all sets hit ${target.repMax} last time` };
   }
 
-  const prev = history[1];
-  if (prev) {
-    const prevWeight = Math.max(...prev.sets.map((s) => s.weight ?? 0));
-    const prevMin = Math.min(...prev.sets.filter((s) => (s.weight ?? 0) === prevWeight).map((s) => s.reps ?? 0));
-    if (prevWeight === weight && minReps < target.repMin && prevMin < target.repMin && weight > 0) {
-      const step = ex.load === "barbell" ? 2.5 : 1;
-      return { weight: round(weight * 0.9, step), reps: target.repMin, hint: "Stalled twice: dropped about 10% to build back up" };
-    }
+  // Plateau: three sessions in a row at this weight without reaching the bottom of the rep range.
+  const stalled = history.slice(0, 3).filter((h) => {
+    const w = Math.max(...h.sets.map((s) => s.weight ?? 0));
+    const min = Math.min(...h.sets.filter((s) => (s.weight ?? 0) === w).map((s) => s.reps ?? 0));
+    return w === weight && min < target.repMin;
+  });
+  if (stalled.length === 3 && weight > 0) {
+    const step = ex.load === "barbell" ? 2.5 : 1;
+    return { weight: round(weight * 0.9, step), reps: target.repMin, hint: "Stuck for 3 sessions: dropped about 10% to build back up with good form" };
+  }
+  if (stalled.length === 2 && stalled[0] === history[0] && stalled[1] === history[1]) {
+    const reps = target.repMin;
+    return { weight, reps, hint: `Same weight, aim for ${reps} reps. If it stalls again, the next session drops about 10%` };
   }
 
   return { weight, reps: Math.min(target.repMax, Math.max(target.repMin, minReps + 1)), hint: `Same weight, aim for ${Math.min(target.repMax, Math.max(target.repMin, minReps + 1))} reps or more` };
