@@ -22,3 +22,15 @@ export function describePlates(totalKg: number): string {
   if (!plates) return `Can't make ${totalKg} kg exactly with standard plates`;
   return `Each side: ${plates.join(" + ")}`;
 }
+
+/**
+ * Warm-up sets before a barbell working weight: empty bar, then about 50% and 75%,
+ * rounded to the nearest 5 kg (2.5 kg plates each side). Fewer steps for lighter weights.
+ */
+export function warmupSets(workKg: number): { kg: number; reps: number }[] {
+  if (workKg < 40) return workKg > BAR_KG ? [{ kg: BAR_KG, reps: 10 }] : [];
+  const r = (x: number) => Math.max(BAR_KG, Math.round(x / 5) * 5);
+  const steps = [{ kg: BAR_KG, reps: 10 }, { kg: r(workKg * 0.5), reps: 5 }];
+  if (workKg >= 60) steps.push({ kg: r(workKg * 0.75), reps: 3 });
+  return steps.filter((s, i, a) => s.kg < workKg && (i === 0 || s.kg > a[i - 1].kg));
+}

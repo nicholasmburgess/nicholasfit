@@ -8,12 +8,25 @@ import { useWorkouts } from "@/lib/useWorkouts";
 import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
 import { WithingsCard } from "@/components/WithingsCard";
+import { WaistCard } from "@/components/WaistCard";
+import { CheckinCard } from "@/components/CheckinCard";
+import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
 import type { WeightEntry } from "@/lib/types";
 
 export default function ProgressPage() {
   const { workouts, error } = useWorkouts();
   const [weights, setWeights] = useState<WeightEntry[]>([]);
-  const loadWeights = () => foodStore.listWeights().then(setWeights).catch(() => setWeights([]));
+  const [checkin, setCheckin] = useState<Checkin | null>(null);
+  const loadWeights = async () => {
+    try {
+      const { start, end } = checkinRange();
+      const [w, profile, meals] = await Promise.all([foodStore.listWeights(), foodStore.getProfile(), foodStore.listMeals(start.toISOString(), end.toISOString())]);
+      setWeights(w);
+      setCheckin(profile ? weeklyCheckin(profile, w, meals) : null);
+    } catch {
+      setWeights([]);
+    }
+  };
   useEffect(() => {
     loadWeights();
   }, []);
@@ -47,6 +60,8 @@ export default function ProgressPage() {
           </div>
         ))}
       </div>
+
+      {checkin && <CheckinCard c={checkin} />}
 
       {t.workouts === 0 ? (
         <Card>
@@ -107,6 +122,7 @@ export default function ProgressPage() {
           <p className="text-sm text-muted">Log your weight on the Food tab, or connect your Withings scale, and your trend appears here.</p>
         </Card>
       )}
+      <WaistCard />
     </main>
   );
 }

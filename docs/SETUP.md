@@ -51,6 +51,10 @@ In Safari tap the **Share** button, then **Add to Home Screen**. It opens full s
 3. In Vercel, add `WITHINGS_CLIENT_ID` and `WITHINGS_CLIENT_SECRET` as environment variables, then redeploy.
 4. In the app, go to Progress and tap **Connect Withings**. New weigh-ins sync each time you open Progress (at most every 10 minutes).
 
+## 8. Waist measurements
+
+Run `supabase/migrations/0004_measurements.sql` in the Supabase SQL Editor.
+
 ## Updating
 
 Every change merged into the `main` branch on GitHub deploys automatically to Vercel within a minute or two.

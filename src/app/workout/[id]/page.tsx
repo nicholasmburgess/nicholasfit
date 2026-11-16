@@ -10,7 +10,7 @@ import { SetRow } from "@/components/SetRow";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { NumberSheet } from "@/components/NumberSheet";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
-import { describePlates } from "@/lib/plates";
+import { describePlates, warmupSets } from "@/lib/plates";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
@@ -378,6 +378,11 @@ function EntryCard({
           </button>
         </div>
         {entry.hint && !readOnly && <p className="mt-2 text-sm text-accent">{entry.hint}</p>}
+        {ex.load === "barbell" && !readOnly && !entry.sets.some((s) => s.done) && entry.sets[0]?.weight != null && warmupSets(entry.sets[0].weight).length > 0 && (
+          <p className="mt-1 text-xs text-muted">
+            Warm up first: {warmupSets(entry.sets[0].weight).map((w) => `${w.kg === 20 ? "bar" : `${w.kg} kg`} × ${w.reps}`).join(", ")}
+          </p>
+        )}
         {last && !readOnly && (
           <p className="mt-1 text-xs text-muted">
             Last time: {last.map((s) => (s.weight ? `${s.weight}×${s.reps}` : `${s.reps}`)).join(", ")}

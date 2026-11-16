@@ -73,3 +73,10 @@ export type Profile = {
   sex: Sex;
   birthYear: number;
 };
+
+export type Measurement = {
+  id: string;
+  measuredAt: string;
+  kind: "waist";
+  cm: number;
+};

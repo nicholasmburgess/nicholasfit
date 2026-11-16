@@ -7,6 +7,7 @@ import { Card } from "@/components/Card";
 import { MealLogger } from "@/components/MealLogger";
 import { foodError, foodStore } from "@/lib/food-store";
 import { SOURCES, currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
+import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
 import { newId } from "@/lib/store";
 import type { Meal, Profile, WeightEntry } from "@/lib/types";
 
@@ -37,12 +38,20 @@ export default function FoodPage() {
   const [profile, setProfile] = useState<Profile | null | undefined>(undefined);
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [editing, setEditing] = useState<"profile" | "weight" | null>(null);
+  const [checkin, setCheckin] = useState<Checkin | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { start, end } = dayRange(offset);
     try {
-      const [m, p, w] = await Promise.all([foodStore.listMeals(start.toISOString(), end.toISOString()), foodStore.getProfile(), foodStore.listWeights()]);
+      const cr = checkinRange();
+      const [m, p, w, past] = await Promise.all([
+        foodStore.listMeals(start.toISOString(), end.toISOString()),
+        foodStore.getProfile(),
+        foodStore.listWeights(),
+        foodStore.listMeals(cr.start.toISOString(), cr.end.toISOString()),
+      ]);
+      setCheckin(p ? weeklyCheckin(p, w, past) : null);
       setMeals(m);
       setProfile(p);
       setWeights(w);
@@ -61,7 +70,8 @@ export default function FoodPage() {
   if (meals === null || profile === undefined) return <p className="pt-10 text-center text-muted">Loading…</p>;
 
   const weight = currentWeight(weights);
-  const targets = profile && weight ? dailyTargets(profile, weight.kg) : null;
+  const adaptive = checkin?.ready ? checkin : null;
+  const targets = adaptive ? adaptive.targets : profile && weight ? dailyTargets(profile, weight.kg) : null;
   const totals = dayTotals(meals);
   const { start } = dayRange(offset);
   const dayLabel = offset === 0 ? "Today" : offset === -1 ? "Yesterday" : start.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" });
@@ -120,6 +130,12 @@ export default function FoodPage() {
           <details className="text-xs text-muted">
             <summary className="cursor-pointer text-accent">How these targets are worked out</summary>
             <div className="mt-2 space-y-2">
+              {adaptive && (
+                <p className="font-medium text-text">
+                  Your calorie target is set by this week&apos;s check-in, from your real weight trend and logged food over the last 3 weeks (maintenance about{" "}
+                  {adaptive.maintenance.toLocaleString("en-AU")} kcal). The formula below was the starting point.
+                </p>
+              )}
               <p>
                 Calories: resting energy from the Mifflin-St Jeor equation (the most accurate in a systematic review), times 1.45 for a desk job plus three strength
                 sessions a week. That gives maintenance of about {targets.tdee.toLocaleString("en-AU")} kcal. The target is 20% below that (at most 500 kcal), which
