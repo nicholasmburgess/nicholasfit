@@ -2,10 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { ExerciseProgress } from "@/components/ExerciseProgress";
-import { EXERCISES, getExercise, videoSearchUrl } from "@/lib/exercises";
+import { EXERCISES, EXTRA_EXERCISES, getExercise, videoSearchUrl } from "@/lib/exercises";
 
 export function generateStaticParams() {
-  return EXERCISES.map((e) => ({ id: e.id }));
+  return [...EXERCISES, ...EXTRA_EXERCISES].map((e) => ({ id: e.id }));
 }
 
 export default async function ExercisePage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,12 +34,16 @@ export default async function ExercisePage({ params }: { params: Promise<{ id: s
             <li key={c}>{c}</li>
           ))}
         </ul>
-        <h2 className="mb-2 mt-4 font-semibold">Common mistakes</h2>
-        <ul className="list-disc space-y-1.5 pl-5 text-sm">
-          {ex.mistakes.map((c) => (
-            <li key={c}>{c}</li>
-          ))}
-        </ul>
+        {ex.mistakes.length > 0 && (
+          <>
+            <h2 className="mb-2 mt-4 font-semibold">Common mistakes</h2>
+            <ul className="list-disc space-y-1.5 pl-5 text-sm">
+              {ex.mistakes.map((c) => (
+                <li key={c}>{c}</li>
+              ))}
+            </ul>
+          </>
+        )}
         <a href={videoSearchUrl(ex)} target="_blank" rel="noreferrer" className="mt-4 block rounded-xl border border-line py-2.5 text-center text-sm text-accent">
           Watch video demos
         </a>

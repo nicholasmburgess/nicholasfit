@@ -1,5 +1,6 @@
+import { isAdjustable } from "./adjustable";
 import { getExercise } from "./exercises";
-import type { Entry, SetLog, Target, Workout } from "./types";
+import type { Entry, Feel, SetLog, Target, Workout } from "./types";
 
 export type Suggestion = { weight: number | null; reps: number | null; hint: string };
 
@@ -29,7 +30,7 @@ export function exerciseHistory(workouts: Workout[], exerciseId: string): { work
 const START_KG: Record<string, number> = {
   Goblet_Squat: 12, Barbell_Squat: 20, "Barbell_Bench_Press_-_Medium_Grip": 20, Dumbbell_Bench_Press: 8, Incline_Dumbbell_Press: 6,
   Seated_Cable_Rows: 20, "One-Arm_Dumbbell_Row": 10, Romanian_Deadlift: 30, Barbell_Deadlift: 40, Barbell_Hip_Thrust: 30,
-  Dumbbell_Shoulder_Press: 6, Standing_Military_Press: 20, "Wide-Grip_Lat_Pulldown": 25, "Close-Grip_Front_Lat_Pulldown": 25,
+  Dumbbell_Shoulder_Press: 6, Seated_Barbell_Military_Press: 20, "Barbell_Incline_Bench_Press_-_Medium_Grip": 20, Side_Lateral_Raise: 4, Cable_Seated_Lateral_Raise: 5, Cable_Rear_Delt_Fly: 5, "Wide-Grip_Lat_Pulldown": 25, "Close-Grip_Front_Lat_Pulldown": 25,
   Split_Squat_with_Dumbbells: 6, Face_Pull: 10, "One-Arm_Kettlebell_Swings": 12, "Triceps_Pushdown_-_Rope_Attachment": 10,
   Hammer_Curls: 6, Dumbbell_Bicep_Curl: 6, Pallof_Press: 5,
 };
@@ -61,8 +62,14 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
   }
 
   if (hitTop) {
-    const next = weight + ex.increment;
-    return { weight: next, reps: target.repMin, hint: `Up ${ex.increment} kg: all sets hit ${target.repMax} last time` };
+    // While still finding a working weight (first few sessions), an easy last set earns a double step.
+    const calibrating = history.length <= 3 && topSets.at(-1)?.feel === "easy" && !isAdjustable(exerciseId);
+    const step = calibrating ? ex.increment * 2 : ex.increment;
+    return {
+      weight: weight + step,
+      reps: target.repMin,
+      hint: calibrating ? `Up ${step} kg: still finding your weight and the last set felt easy` : `Up ${step} kg: all sets hit ${target.repMax} last time`,
+    };
   }
 
   // Plateau: three sessions in a row at this weight without reaching the bottom of the rep range.
@@ -124,4 +131,31 @@ export function workoutSummary(w: Workout): [string, string] {
   const first = `${sets} ${sets === 1 ? "set" : "sets"}`;
   const second = kg > 0 ? `${Math.round(kg).toLocaleString("en-AU")} kg` : minutes > 0 ? `${minutes} min` : "";
   return [first, second];
+}
+
+/**
+ * After a set is rated, adjust the rest of this exercise: "easy" moves later sets up one step,
+ * "hard" with reps short of the range moves them down. The adjustable dumbbell/kettlebell set
+ * keeps its weight (re-loading costs a set-up), so it gets a reps tip instead.
+ */
+export function applyFeel(entry: Entry, si: number, feel: Feel): Entry {
+  const sets = entry.sets.map((s, j) => (j === si ? { ...s, feel } : s));
+  const ex = getExercise(entry.exerciseId);
+  const s = sets[si];
+  const remaining = sets.some((x, j) => j > si && !x.done);
+  if (!ex || ex.unit !== "reps" || !remaining || feel === "good") return { ...entry, sets };
+  const reps = s.reps ?? 0;
+  if (s.weight == null || ex.increment === 0 || isAdjustable(entry.exerciseId)) {
+    const hint = feel === "easy" ? "Felt easy: aim for 2 more reps on the next set" : reps < entry.target.repMin ? "Felt hard: rest a little longer before the next set" : entry.hint;
+    return { ...entry, sets, hint };
+  }
+  let delta = 0;
+  if (feel === "easy") delta = ex.increment;
+  else if (reps < entry.target.repMin) delta = -ex.increment;
+  if (delta === 0) return { ...entry, sets };
+  const from = s.weight;
+  const to = Math.max(0, from + delta);
+  for (let j = si + 1; j < sets.length; j++) if (!sets[j].done && sets[j].weight === from) sets[j] = { ...sets[j], weight: to };
+  const unit = ex.load === "dumbbell" ? " each" : "";
+  return { ...entry, sets, hint: delta > 0 ? `Felt easy: next sets up to ${to} kg${unit}` : `Felt hard: next sets down to ${to} kg${unit}` };
 }
