@@ -83,10 +83,10 @@ const remote: FoodStore = {
     if (error) throw error;
   },
   async listWeights() {
-    const { data, error } = await supabase().from("body_weights").select("id,measured_at,kg,source").order("measured_at");
+    const { data, error } = await supabase().from("body_weights").select("*").order("measured_at");
     if (error) throw error;
-    return (data as { id: string; measured_at: string; kg: number; source: WeightEntry["source"] }[]).map((r) => ({
-      id: r.id, measuredAt: r.measured_at, kg: Number(r.kg), source: r.source,
+    return (data as { id: string; measured_at: string; kg: number; fat_pct?: number | null; source: WeightEntry["source"] }[]).map((r) => ({
+      id: r.id, measuredAt: r.measured_at, kg: Number(r.kg), fatPct: r.fat_pct == null ? null : Number(r.fat_pct), source: r.source,
     }));
   },
   async saveWeight(w) {

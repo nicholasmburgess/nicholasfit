@@ -7,13 +7,15 @@ import { WEEKLY_GOAL, liftSeries, recentRecords, totals, weekStreak, weeklyTotal
 import { useWorkouts } from "@/lib/useWorkouts";
 import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
+import { WithingsCard } from "@/components/WithingsCard";
 import type { WeightEntry } from "@/lib/types";
 
 export default function ProgressPage() {
   const { workouts, error } = useWorkouts();
   const [weights, setWeights] = useState<WeightEntry[]>([]);
+  const loadWeights = () => foodStore.listWeights().then(setWeights).catch(() => setWeights([]));
   useEffect(() => {
-    foodStore.listWeights().then(setWeights).catch(() => setWeights([]));
+    loadWeights();
   }, []);
   if (!workouts) return <p className="pt-10 text-center text-muted">Loading…</p>;
 
@@ -92,15 +94,17 @@ export default function ProgressPage() {
         </>
       )}
 
+      <WithingsCard onSynced={loadWeights} />
       {weights.length > 0 ? (
         <Card>
           <h2 className="mb-2 font-semibold">Body weight</h2>
-          <LiftLine name={`${weights.at(-1)!.kg} kg`} unit="kg" points={weights.map((w) => ({ date: w.measuredAt, value: w.kg }))} />
+          {weights.at(-1)!.fatPct != null && <p className="mb-1 text-sm text-muted">Body fat {weights.at(-1)!.fatPct}%</p>}
+          <LiftLine name={`${Math.round(weights.at(-1)!.kg * 10) / 10} kg`} unit="kg" points={weights.map((w) => ({ date: w.measuredAt, value: w.kg }))} />
         </Card>
       ) : (
         <Card className="border-dashed">
           <h2 className="font-semibold">Body weight</h2>
-          <p className="text-sm text-muted">Log your weight on the Food tab, or connect your Withings scale (coming next), and your trend appears here.</p>
+          <p className="text-sm text-muted">Log your weight on the Food tab, or connect your Withings scale, and your trend appears here.</p>
         </Card>
       )}
     </main>

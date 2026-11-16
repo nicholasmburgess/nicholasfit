@@ -1,4 +1,4 @@
-import type { Meal, Profile } from "./types";
+import type { Meal, Profile, WeightEntry } from "./types";
 
 export type Targets = { kcal: number; protein: number; tdee: number };
 
@@ -55,3 +55,13 @@ export const SOURCES = [
   },
   { text: "Jäger R et al. International Society of Sports Nutrition position stand: protein and exercise. J Int Soc Sports Nutr, 2017.", url: "https://pubmed.ncbi.nlm.nih.gov/28642676/" },
 ];
+
+/** Average of weigh-ins in the 7 days up to the latest one, which smooths out day-to-day water swings. */
+export function currentWeight(weights: WeightEntry[]): { kg: number; date: string; count: number } | null {
+  const last = weights.at(-1);
+  if (!last) return null;
+  const from = Date.parse(last.measuredAt) - 7 * 86400000;
+  const recent = weights.filter((w) => Date.parse(w.measuredAt) > from);
+  const kg = recent.reduce((s, w) => s + w.kg, 0) / recent.length;
+  return { kg: Math.round(kg * 10) / 10, date: last.measuredAt, count: recent.length };
+}

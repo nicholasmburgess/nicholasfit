@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
-import { dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
+import { currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
 
 /** One-line food summary for the Today page. Stays hidden if food tracking isn't set up. */
 export function FoodToday() {
@@ -13,7 +13,7 @@ export function FoodToday() {
     Promise.all([foodStore.listMeals(start.toISOString(), end.toISOString()), foodStore.getProfile(), foodStore.listWeights()])
       .then(([meals, profile, weights]) => {
         const t = dayTotals(meals);
-        const w = weights.at(-1);
+        const w = currentWeight(weights);
         if (profile && w) {
           const g = dailyTargets(profile, w.kg);
           setLine(`${Math.round(t.kcal).toLocaleString("en-AU")} / ${g.kcal.toLocaleString("en-AU")} kcal · ${Math.round(t.protein)} / ${g.protein} g protein`);

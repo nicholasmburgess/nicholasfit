@@ -6,7 +6,7 @@ import { AiStatus } from "@/components/AiStatus";
 import { Card } from "@/components/Card";
 import { MealLogger } from "@/components/MealLogger";
 import { foodError, foodStore } from "@/lib/food-store";
-import { SOURCES, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
+import { SOURCES, currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
 import { newId } from "@/lib/store";
 import type { Meal, Profile, WeightEntry } from "@/lib/types";
 
@@ -60,7 +60,7 @@ export default function FoodPage() {
 
   if (meals === null || profile === undefined) return <p className="pt-10 text-center text-muted">Loading…</p>;
 
-  const weight = weights.at(-1);
+  const weight = currentWeight(weights);
   const targets = profile && weight ? dailyTargets(profile, weight.kg) : null;
   const totals = dayTotals(meals);
   const { start } = dayRange(offset);
@@ -175,7 +175,7 @@ export default function FoodPage() {
 
       {profile && weight && !editing && (
         <p className="text-center text-xs text-muted">
-          Based on {weight.kg} kg ({new Date(weight.measuredAt).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}).{" "}
+          Based on {weight.kg} kg{weight.count > 1 ? ` (7-day average of ${weight.count} weigh-ins)` : ` (${new Date(weight.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })})`}.{" "}
           <button className="text-accent" onClick={() => setEditing("weight")}>
             Update weight
           </button>{" "}

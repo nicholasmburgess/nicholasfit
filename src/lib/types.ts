@@ -61,6 +61,8 @@ export type WeightEntry = {
   id: string;
   measuredAt: string;
   kg: number;
+  /** Body fat percentage, when the scale measures it. */
+  fatPct?: number | null;
   source: "manual" | "withings";
 };
 

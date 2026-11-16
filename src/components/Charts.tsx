@@ -96,7 +96,7 @@ export function LiftLine({ points, unit, name }: { points: { date: string; value
         ))}
       </svg>
       <p className="text-xs text-muted">
-        {date}: {vals[active]} {unit}
+        {date}: {Math.round(vals[active] * 10) / 10} {unit}
       </p>
     </div>
   );
