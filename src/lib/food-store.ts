@@ -12,6 +12,8 @@ export interface FoodStore {
   saveProfile(p: Profile): Promise<void>;
   listMeasurements(): Promise<Measurement[]>;
   saveMeasurement(m: Measurement): Promise<void>;
+  /** Remember today's targets so the home-screen widget can show them. */
+  saveTargets(t: { kcal: number; protein: number }): Promise<void>;
 }
 
 // ---- Demo mode: this browser only ----
@@ -56,6 +58,7 @@ const local: FoodStore = {
   async saveMeasurement(m) {
     write(K.measurements, [...read<Measurement[]>(K.measurements, []).filter((x) => x.id !== m.id), m]);
   },
+  async saveTargets() {},
 };
 
 // ---- Supabase ----
@@ -121,6 +124,20 @@ const remote: FoodStore = {
   async saveMeasurement(m) {
     const { error } = await supabase().from("body_measurements").upsert({ id: m.id, measured_at: m.measuredAt, kind: m.kind, cm: m.cm });
     if (error) throw error;
+  },
+  async saveTargets(t) {
+    const key = "nicholasfit.targets.cached";
+    const value = JSON.stringify({ kcal: Math.round(t.kcal), protein: Math.round(t.protein) });
+    try {
+      if (localStorage.getItem(key) === value) return;
+    } catch {}
+    const { data } = await supabase().auth.getUser();
+    if (!data.user) return;
+    const { error } = await supabase().from("profiles").update({ targets: JSON.parse(value) }).eq("user_id", data.user.id);
+    if (error) return; // column may not exist until 0005_widget.sql is run
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
   },
 };
 

@@ -19,6 +19,7 @@ export function FoodToday() {
         if (profile && w) {
           const c = weeklyCheckin(profile, weights, past);
           const g = c.ready ? c.targets : dailyTargets(profile, w.kg);
+          foodStore.saveTargets(g).catch(() => {});
           setLine(`${Math.round(t.kcal).toLocaleString("en-AU")} / ${g.kcal.toLocaleString("en-AU")} kcal · ${Math.round(t.protein)} / ${g.protein} g protein`);
         } else setLine(meals.length ? `${Math.round(t.kcal)} kcal · ${Math.round(t.protein)} g protein` : "Set up your targets");
       })

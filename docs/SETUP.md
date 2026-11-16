@@ -55,6 +55,12 @@ In Safari tap the **Share** button, then **Add to Home Screen**. It opens full s
 
 Run `supabase/migrations/0004_measurements.sql` in the Supabase SQL Editor.
 
+## 9. Home-screen widget
+
+1. Run `supabase/migrations/0005_widget.sql` in the Supabase SQL Editor.
+2. In the app, open Progress, tap **Home-screen widget** then **Make my widget key**, and follow the steps there. You need the free Scriptable app.
+3. The key is stored only as a hash. Making a new key stops the old scripts working.
+
 ## Updating
 
 Every change merged into the `main` branch on GitHub deploys automatically to Vercel within a minute or two.
