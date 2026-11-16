@@ -8,10 +8,12 @@ const BASE = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main";
 const IDS = [
   "Goblet_Squat", "Barbell_Squat", "Barbell_Bench_Press_-_Medium_Grip", "Dumbbell_Bench_Press",
   "Incline_Dumbbell_Press", "Seated_Cable_Rows", "One-Arm_Dumbbell_Row", "Romanian_Deadlift",
-  "Barbell_Deadlift", "Barbell_Hip_Thrust", "Dumbbell_Shoulder_Press", "Standing_Military_Press",
+  "Barbell_Deadlift", "Barbell_Hip_Thrust", "Dumbbell_Shoulder_Press",
   "Wide-Grip_Lat_Pulldown", "Close-Grip_Front_Lat_Pulldown", "Split_Squat_with_Dumbbells",
   "Face_Pull", "One-Arm_Kettlebell_Swings", "Triceps_Pushdown_-_Rope_Attachment", "Hammer_Curls",
   "Dumbbell_Bicep_Curl", "Plank", "Dead_Bug", "Pallof_Press", "Rowing_Stationary",
+  "Seated_Barbell_Military_Press", "Barbell_Incline_Bench_Press_-_Medium_Grip", "Side_Lateral_Raise",
+  "Cable_Seated_Lateral_Raise", "Cable_Rear_Delt_Fly", "Pushups",
 ];
 
 const root = path.resolve(import.meta.dirname, "..");
