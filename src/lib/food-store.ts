@@ -1,6 +1,6 @@
 import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
-import type { Meal, Profile, WeightEntry } from "@/lib/types";
+import type { Meal, Measurement, Profile, WeightEntry } from "@/lib/types";
 
 export interface FoodStore {
   listMeals(fromIso: string, toIso: string): Promise<Meal[]>;
@@ -10,10 +10,12 @@ export interface FoodStore {
   saveWeight(w: WeightEntry): Promise<void>;
   getProfile(): Promise<Profile | null>;
   saveProfile(p: Profile): Promise<void>;
+  listMeasurements(): Promise<Measurement[]>;
+  saveMeasurement(m: Measurement): Promise<void>;
 }
 
 // ---- Demo mode: this browser only ----
-const K = { meals: "nicholasfit.meals.v1", weights: "nicholasfit.weights.v1", profile: "nicholasfit.profile.v1" };
+const K = { meals: "nicholasfit.meals.v1", weights: "nicholasfit.weights.v1", profile: "nicholasfit.profile.v1", measurements: "nicholasfit.measurements.v1" };
 function read<T>(key: string, fallback: T): T {
   try {
     const v = localStorage.getItem(key);
@@ -47,6 +49,12 @@ const local: FoodStore = {
   },
   async saveProfile(p) {
     write(K.profile, p);
+  },
+  async listMeasurements() {
+    return read<Measurement[]>(K.measurements, []).sort((a, b) => a.measuredAt.localeCompare(b.measuredAt));
+  },
+  async saveMeasurement(m) {
+    write(K.measurements, [...read<Measurement[]>(K.measurements, []).filter((x) => x.id !== m.id), m]);
   },
 };
 
@@ -103,6 +111,15 @@ const remote: FoodStore = {
     const { error } = await supabase().from("profiles").upsert({
       user_id: data.user?.id, height_cm: p.heightCm, sex: p.sex, birth_year: p.birthYear, updated_at: new Date().toISOString(),
     });
+    if (error) throw error;
+  },
+  async listMeasurements() {
+    const { data, error } = await supabase().from("body_measurements").select("id,measured_at,kind,cm").order("measured_at");
+    if (error) throw error;
+    return (data as { id: string; measured_at: string; kind: "waist"; cm: number }[]).map((r) => ({ id: r.id, measuredAt: r.measured_at, kind: r.kind, cm: Number(r.cm) }));
+  },
+  async saveMeasurement(m) {
+    const { error } = await supabase().from("body_measurements").upsert({ id: m.id, measured_at: m.measuredAt, kind: m.kind, cm: m.cm });
     if (error) throw error;
   },
 };
