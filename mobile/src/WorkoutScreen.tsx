@@ -8,6 +8,8 @@ import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable } from "@/lib/adj
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { describePlates, warmupSets } from "@/lib/plates";
 import { applyFeel, exerciseHistory } from "@/lib/progression";
+import { bests, isLivePr } from "@/lib/records";
+import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 import type { HrUpdate } from "./heartRate";
 import { onSyncChange, pendingCount, saveWorkout } from "./store";
@@ -129,18 +131,27 @@ export function WorkoutScreen({
       setEditing({ ei, si, field: "weight", thenComplete: true });
       return;
     }
-    Haptics.notificationAsync(done ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => {});
     const next = update((x) => ({
       ...x,
       entries: x.entries.map((en, j) =>
         j !== ei ? en : { ...en, sets: en.sets.map((st, k) => (k !== si ? st : { ...st, done, reps: st.reps ?? en.goalReps ?? en.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? {} : { feel: undefined }) })) },
       ),
     }));
-    if (done && e.target.restSec > 0) {
-      const endsAt = Date.now() + e.target.restSec * 1000;
-      setRest({ endsAt, total: e.target.restSec, ei, si });
+    const pr = done && isLivePr(next.entries[ei], si, bests(history, e.exerciseId, next.id));
+    Haptics.notificationAsync(done ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    if (pr) setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {}), 250);
+    if (!done) {
+      if (rest?.ei === ei && rest.si === si) endRest();
+      return;
+    }
+    // In a superset, go straight to the partner exercise; rest after the round.
+    const sec = restSeconds(next, ei);
+    if (!restAfter(next, ei, si)) endRest();
+    else if (sec > 0) {
+      const endsAt = Date.now() + sec * 1000;
+      setRest({ endsAt, total: sec, ei, si });
       scheduleRestAlert(endsAt, upNextText(next));
-    } else if (!done && rest?.ei === ei && rest.si === si) endRest();
+    }
   }
 
   function finish() {
@@ -173,7 +184,7 @@ export function WorkoutScreen({
   }
 
   const doneSets = w.entries.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
-  const current = w.entries.findIndex((x) => x.sets.some((s) => !s.done));
+  const up = nextUp(w);
   const setups = adjustableSetups(w.entries);
 
   return (
@@ -209,7 +220,28 @@ export function WorkoutScreen({
             c={c}
             entry={e}
             last={exerciseHistory(history, e.exerciseId)[0]?.sets}
-            current={ei === current}
+            nextSi={up?.ei === ei ? up.si : -1}
+            superset={supersetLabel(w.entries, ei)}
+            past={bests(history, e.exerciseId, w.id)}
+            onNote={() =>
+              Alert.prompt(
+                "Note for this exercise",
+                "Shows every time you do it, e.g. seat on notch 4.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Save", onPress: (t?: string) => updateEntry(ei, (x) => ({ ...x, note: (t ?? "").trim() })) },
+                ],
+                "plain-text",
+                e.note ?? "",
+              )
+            }
+            onSuperset={() => {
+              tap();
+              if (w.entries[ei].group) return update((x) => ({ ...x, entries: unlink(x.entries, ei) }));
+              const why = supersetBlocker(w.entries, ei);
+              if (why) return Alert.alert("Can't superset", why);
+              update((x) => ({ ...x, entries: linkNext(x.entries, ei) }));
+            }}
             onEdit={(si, field) => setEditing({ ei, si, field })}
             onToggle={(si) => toggleDone(ei, si)}
             onFeel={(si, f) => {
@@ -267,9 +299,10 @@ export function WorkoutScreen({
 
 /** The next set to do, e.g. "Bench Press · set 3 · 60 kg × 8". */
 function nextSet(w: Workout) {
-  for (const [ei, e] of w.entries.entries()) {
-    const si = e.sets.findIndex((x) => !x.done);
-    if (si < 0) continue;
+  const up = nextUp(w);
+  if (up) {
+    const { ei, si } = up;
+    const e = w.entries[ei];
     const ex = getExercise(e.exerciseId);
     const set = e.sets[si];
     const reps = set.reps ?? e.goalReps ?? e.target.repMin;
@@ -321,7 +354,11 @@ function EntryCard({
   c,
   entry,
   last,
-  current,
+  nextSi,
+  superset,
+  past,
+  onNote,
+  onSuperset,
   onEdit,
   onToggle,
   onFeel,
@@ -332,7 +369,11 @@ function EntryCard({
   c: Theme;
   entry: Entry;
   last?: SetLog[];
-  current: boolean;
+  nextSi: number;
+  superset: string | null;
+  past: ReturnType<typeof bests>;
+  onNote: () => void;
+  onSuperset: () => void;
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
   onFeel: (si: number, f: Feel) => void;
@@ -346,7 +387,6 @@ function EntryCard({
   const { target } = entry;
   const unit = unitLabel(ex.unit);
   const wLabel = weightLabel(ex);
-  const nextIdx = entry.sets.findIndex((x) => !x.done);
   const plateWeight = (entry.sets.find((x) => !x.done) ?? entry.sets.at(-1))?.weight ?? null;
   const lastDone = entry.sets.reduce((acc, x, i) => (x.done ? i : acc), -1);
   const askAt = ex.unit === "reps" && lastDone >= 0 && !entry.sets[lastDone].feel ? lastDone : -1;
@@ -354,8 +394,9 @@ function EntryCard({
   const warm = ex.load === "barbell" && !entry.sets.some((x) => x.done) && entry.sets[0]?.weight != null ? warmupSets(entry.sets[0].weight) : [];
 
   return (
-    <View style={[s.card, { backgroundColor: c.card, borderColor: c.line }]}>
+    <View style={[s.card, { backgroundColor: c.card, borderColor: c.line }, superset ? { borderLeftWidth: 4, borderLeftColor: c.accent } : null]}>
       <View style={{ padding: 16, paddingBottom: 8 }}>
+        {superset && <Text style={{ color: c.accent, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, marginBottom: 4 }}>{superset.toUpperCase()}</Text>}
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
           <View style={{ flex: 1 }}>
             <Text style={{ color: c.text, fontSize: 19, fontWeight: "700" }}>{ex.name}</Text>
@@ -369,6 +410,9 @@ function EntryCard({
           </Pressable>
         </View>
         {!!entry.hint && <Text style={{ color: c.accent, fontSize: 15, marginTop: 8 }}>{entry.hint}</Text>}
+        <Pressable onPress={onNote} hitSlop={6} style={{ marginTop: 6, alignSelf: "flex-start" }}>
+          <Text style={{ color: c.muted, fontSize: entry.note ? 15 : 13 }}>{entry.note ? `📝 ${entry.note}` : "+ Add note"}</Text>
+        </Pressable>
         {warm.length > 0 && (
           <Text style={[s.small, { color: c.muted, marginTop: 4 }]}>
             Warm up first: {warm.map((x) => `${x.kg === 20 ? "bar" : `${x.kg} kg`} × ${x.reps}`).join(", ")}
@@ -396,14 +440,21 @@ function EntryCard({
 
       <View style={{ paddingHorizontal: 10, paddingBottom: 10, gap: 6 }}>
         {entry.sets.map((set, si) => {
-          const isNext = current && si === nextIdx;
+          const isNext = si === nextSi;
+          const pr = isLivePr(entry, si, past);
           const prev = last?.[si];
           const prevText = prev && prev.done && prev.reps != null ? (prev.weight != null ? `${prev.weight} × ${prev.reps}` : `${prev.reps}`) : "–";
           const field = [s.field, { backgroundColor: set.done ? "transparent" : c.card2 }];
           return (
             <View key={si} style={{ gap: 6 }}>
               <View style={[s.row, s.setRow, set.done ? { backgroundColor: c.accentSoft } : isNext ? { borderColor: c.accent, borderWidth: 2 } : { borderColor: "transparent", borderWidth: 2 }]}>
-                <Text style={[s.colSet, { color: c.text, fontSize: 17, fontWeight: "700", textAlign: "center" }]}>{si + 1}</Text>
+                {pr ? (
+                  <View style={[s.colSet, { backgroundColor: c.accent, borderRadius: 6, paddingVertical: 2 }]}>
+                    <Text style={{ color: c.accentInk, fontSize: 11, fontWeight: "800", textAlign: "center" }}>PR</Text>
+                  </View>
+                ) : (
+                  <Text style={[s.colSet, { color: c.text, fontSize: 17, fontWeight: "700", textAlign: "center" }]}>{si + 1}</Text>
+                )}
                 <Text style={[s.colPrev, { color: c.muted, fontSize: 14, fontVariant: ["tabular-nums"] }]} numberOfLines={1}>
                   {prevText}
                 </Text>
@@ -451,6 +502,9 @@ function EntryCard({
         </Pressable>
         <Pressable onPress={onRemoveSet} disabled={entry.sets.length <= 1} style={[s.footBtn, { opacity: entry.sets.length <= 1 ? 0.4 : 1 }]}>
           <Text style={{ color: c.muted, fontSize: 16 }}>− Set</Text>
+        </Pressable>
+        <Pressable onPress={onSuperset} style={s.footBtn}>
+          <Text style={{ color: superset ? c.accent : c.muted, fontSize: 16 }}>{superset ? "Unpair" : "Superset"}</Text>
         </Pressable>
         <Pressable onPress={onSwap} style={s.footBtn}>
           <Text style={{ color: c.muted, fontSize: 16 }}>Swap</Text>

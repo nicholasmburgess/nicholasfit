@@ -27,6 +27,10 @@ export type Entry = {
   goalReps?: number;
   /** The routine's original exercise when this one was swapped in, e.g. Goblet_Squat for Barbell_Squat. */
   slot?: string;
+  /** Entries sharing a group id are a superset: alternate between them, rest after each round. */
+  group?: string;
+  /** Your own note for this exercise (e.g. "seat on notch 4"). Carried into future sessions. */
+  note?: string;
 };
 
 export type Workout = {

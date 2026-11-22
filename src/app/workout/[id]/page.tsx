@@ -16,6 +16,8 @@ import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable }
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
 import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
+import { bests, isLivePr } from "@/lib/records";
+import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import { DEFAULT_TARGET } from "@/lib/routines";
 import { hasNativeWorkout, openOnPhone, postNative, useHeartRate } from "@/lib/native";
 import { store } from "@/lib/store";
@@ -161,7 +163,12 @@ export default function WorkoutPage() {
     }
     changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? {} : { feel: undefined }) });
     setTimeout(() => flushRef.current(), 0);
-    if (done && e.target.restSec > 0) setRest({ endsAt: Date.now() + e.target.restSec * 1000, total: e.target.restSec });
+    if (!done) return;
+    // In a superset, go straight to the partner exercise and rest after the round.
+    const after = { ...w, entries: w.entries.map((x, j) => (j === ei ? { ...x, sets: x.sets.map((st, k) => (k === si ? { ...st, done: true } : st)) } : x)) };
+    const sec = restSeconds(after, ei);
+    if (!restAfter(after, ei, si)) setRest(null);
+    else if (sec > 0) setRest({ endsAt: Date.now() + sec * 1000, total: sec });
   }
 
   /** Build an entry for a new or swapped exercise, matching loaded dumbbell/kettlebell weights where possible. */
@@ -268,7 +275,16 @@ export default function WorkoutPage() {
           key={`${e.exerciseId}-${ei}`}
           entry={e}
           last={exerciseHistory(history, e.exerciseId)[0]?.sets}
-          current={ei === w.entries.findIndex((x) => x.sets.some((st) => !st.done))}
+          nextSi={nextUp(w)?.ei === ei ? nextUp(w)!.si : -1}
+          superset={supersetLabel(w.entries, ei)}
+          past={bests(history, e.exerciseId, w.id)}
+          onNote={(note) => updateEntry(ei, (x) => ({ ...x, note: note.trim() }))}
+          onSuperset={() => {
+            if (w.entries[ei].group) return update((x) => ({ ...x, entries: unlink(x.entries, ei) }));
+            const why = supersetBlocker(w.entries, ei);
+            if (why) return alert(why);
+            update((x) => ({ ...x, entries: linkNext(x.entries, ei) }));
+          }}
           readOnly={readOnly}
           onEdit={(si, field) => setEditing({ ei, si, field })}
           onToggle={(si) => toggleDone(ei, si)}
@@ -279,7 +295,7 @@ export default function WorkoutPage() {
           onSwap={() => setSwapping(ei)}
           onAddSet={() => updateEntry(ei, (x) => ({ ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] }))}
           onRemoveSet={() => updateEntry(ei, (x) => ({ ...x, sets: x.sets.slice(0, -1) }))}
-          onRemove={() => update((w) => ({ ...w, entries: w.entries.filter((_, j) => j !== ei) }))}
+          onRemove={() => update((w) => ({ ...w, entries: unlink(w.entries, ei).filter((_, j) => j !== ei) }))}
         />
       ))}
 
@@ -372,7 +388,11 @@ function Elapsed({ since }: { since: string }) {
 function EntryCard({
   entry,
   last,
-  current,
+  nextSi,
+  superset,
+  past,
+  onNote,
+  onSuperset,
   readOnly,
   onEdit,
   onToggle,
@@ -384,8 +404,12 @@ function EntryCard({
 }: {
   entry: Entry;
   last?: SetLog[];
-  /** First exercise with sets left: its next set gets the outline. */
-  current?: boolean;
+  /** Index of the next set to do in this exercise (outlined), or -1. */
+  nextSi: number;
+  superset: string | null;
+  past: ReturnType<typeof bests>;
+  onNote: (note: string) => void;
+  onSuperset: () => void;
   readOnly: boolean;
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
@@ -397,6 +421,7 @@ function EntryCard({
 }) {
   const ex = getExercise(entry.exerciseId);
   const [showDemo, setShowDemo] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
   if (!ex) return null;
   const { target } = entry;
   const unit = unitLabel(ex.unit);
@@ -408,8 +433,9 @@ function EntryCard({
   const rest = target.restSec >= 60 ? `${Math.floor(target.restSec / 60)}:${String(target.restSec % 60).padStart(2, "0")}` : `${target.restSec}s`;
 
   return (
-    <Card className="!p-0">
+    <Card className={`!p-0 ${superset ? "border-l-4 !border-l-accent" : ""}`}>
       <div className="p-4 pb-2">
+        {superset && <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent">{superset}</p>}
         <div className="flex items-start justify-between gap-2">
           <div>
             <Link href={`/exercises/${ex.id}`} className="text-lg font-semibold tracking-tight">
@@ -425,6 +451,29 @@ function EntryCard({
           </button>
         </div>
         {entry.hint && !readOnly && <p className="mt-2 text-sm text-accent">{entry.hint}</p>}
+        {editingNote ? (
+          <input
+            autoFocus
+            defaultValue={entry.note ?? ""}
+            placeholder="e.g. seat on notch 4, grip just outside the rings"
+            className="mt-2 w-full rounded-lg border border-line bg-card-2 px-3 py-2 text-sm"
+            onBlur={(e) => {
+              onNote(e.target.value);
+              setEditingNote(false);
+            }}
+            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+          />
+        ) : entry.note ? (
+          <button className="mt-2 block text-left text-sm text-muted" disabled={readOnly} onClick={() => setEditingNote(true)}>
+            📝 {entry.note}
+          </button>
+        ) : (
+          !readOnly && (
+            <button className="mt-1 text-xs text-muted" onClick={() => setEditingNote(true)}>
+              + Add note
+            </button>
+          )
+        )}
         {ex.load === "barbell" && !readOnly && !entry.sets.some((s) => s.done) && entry.sets[0]?.weight != null && warmupSets(entry.sets[0].weight).length > 0 && (
           <p className="mt-1 text-xs text-muted">
             Warm up first: {warmupSets(entry.sets[0].weight).map((w) => `${w.kg === 20 ? "bar" : `${w.kg} kg`} × ${w.reps}`).join(", ")}
@@ -457,7 +506,8 @@ function EntryCard({
             index={si}
             set={s}
             prev={readOnly ? undefined : last?.[si]}
-            isNext={!readOnly && !!current && !s.done && entry.sets.findIndex((x) => !x.done) === si}
+            isNext={!readOnly && si === nextSi}
+            pr={!readOnly && isLivePr(entry, si, past)}
             showWeight={!!wLabel}
             repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
             readOnly={readOnly}
@@ -483,6 +533,9 @@ function EntryCard({
         </button>
         <button className="flex-1 py-3.5 text-muted" onClick={onSwap}>
           Swap
+        </button>
+        <button className={`flex-1 py-3.5 ${superset ? "text-accent" : "text-muted"}`} onClick={onSuperset}>
+          {superset ? "Unpair" : "Superset"}
         </button>
         <button className="flex-1 py-3.5 text-muted" onClick={onRemove}>
           Remove

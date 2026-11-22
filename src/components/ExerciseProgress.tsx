@@ -2,6 +2,7 @@
 
 import { getExercise, unitLabel } from "@/lib/exercises";
 import { formatDate } from "@/lib/format";
+import { e1rm } from "@/lib/records";
 import { useWorkouts } from "@/lib/useWorkouts";
 
 /** Top set per session over time, plus the last few sessions. */
@@ -31,6 +32,7 @@ export function ExerciseProgress({ exerciseId }: { exerciseId: string }) {
   const x = (i: number) => (sessions.length === 1 ? W / 2 : pad + (i / (sessions.length - 1)) * (W - 2 * pad));
   const y = (v: number) => (hi === lo ? H / 2 : H - pad - ((v - lo) / (hi - lo)) * (H - 2 * pad));
   const label = usesWeight ? "kg" : unitLabel(ex.unit);
+  const best1rm = usesWeight ? Math.max(0, ...sessions.flatMap((s) => s.sets.map((x) => e1rm(x.weight, x.reps)))) : 0;
 
   return (
     <section className="rounded-2xl border border-line bg-card p-4">
@@ -38,6 +40,7 @@ export function ExerciseProgress({ exerciseId }: { exerciseId: string }) {
         <h2 className="font-semibold">Your progress</h2>
         <span className="text-sm text-muted">
           Best {hi} {label}
+          {best1rm > 0 && ` · est. 1RM ${Math.round(best1rm)} kg`}
         </span>
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" role="img" aria-label={`Top set ${label} per session`}>

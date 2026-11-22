@@ -11,6 +11,7 @@ import { WidgetCard } from "@/components/WidgetCard";
 import { WithingsCard } from "@/components/WithingsCard";
 import { WaistCard } from "@/components/WaistCard";
 import { HealthCard } from "@/components/HealthCard";
+import { MuscleSetsCard } from "@/components/MuscleSetsCard";
 import { CheckinCard } from "@/components/CheckinCard";
 import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
 import type { WeightEntry } from "@/lib/types";
@@ -78,6 +79,8 @@ export default function ProgressPage() {
             <h2 className="font-semibold">Sessions per week</h2>
             <WeeklyBars data={weeks.map((w) => ({ label: w.label, value: w.sessions }))} goal={WEEKLY_GOAL} format={(v) => `${v} ${v === 1 ? "session" : "sessions"}`} label="Sessions per week, last 12 weeks" />
           </Card>
+
+          <MuscleSetsCard workouts={workouts} />
 
           <Card>
             <h2 className="font-semibold">Weight lifted per week</h2>

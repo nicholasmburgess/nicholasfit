@@ -13,6 +13,7 @@ export function SetRow({
   set,
   prev,
   isNext,
+  pr,
   showWeight,
   repsPlaceholder,
   readOnly,
@@ -27,6 +28,8 @@ export function SetRow({
   prev?: SetLog;
   /** The next set to do, outlined so it's easy to find mid-workout. */
   isNext?: boolean;
+  /** Beat every earlier session: show a PR badge. */
+  pr?: boolean;
   showWeight: boolean;
   repsPlaceholder: string;
   readOnly: boolean;
@@ -46,7 +49,7 @@ export function SetRow({
           set.done ? "bg-accent/10" : isNext ? "ring-2 ring-inset ring-accent" : ""
         }`}
       >
-        <span className="text-center text-base font-semibold">{index + 1}</span>
+        <span className="text-center text-base font-semibold">{pr ? <span className="rounded bg-accent px-1 text-[10px] font-bold text-accent-ink">PR</span> : index + 1}</span>
         <span className="truncate text-sm tabular-nums text-muted">{prevText}</span>
         {showWeight ? (
           <button aria-label={`Set ${index + 1} weight`} className={field} disabled={readOnly} onClick={() => onEdit("weight")}>

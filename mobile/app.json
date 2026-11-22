@@ -46,7 +46,8 @@
         {
           "enableRemoteNotifications": false
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

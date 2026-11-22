@@ -45,7 +45,8 @@ export type ToNative =
   | { type: "session"; session: { url: string; anonKey: string; accessToken: string; refreshToken: string; expiresAt: number } }
   | { type: "snapshot"; snapshot: { plan: Plan; history: Workout[] } }
   | { type: "startWorkout"; key: string | null; snapshot?: { plan: Plan; history: Workout[] } }
-  | { type: "openWorkout"; workout: Workout };
+  | { type: "openWorkout"; workout: Workout }
+  | { type: "shareFile"; name: string; mime: string; text: string };
 
 export function postNative(msg: ToNative) {
   if (isNativeApp()) window.ReactNativeWebView!.postMessage(JSON.stringify(msg));

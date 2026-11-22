@@ -1,4 +1,6 @@
 import * as Crypto from "expo-crypto";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
@@ -32,7 +34,8 @@ type FromWeb =
   | { type: "session"; session: Session }
   | { type: "snapshot"; snapshot: Omit<Snapshot, "savedAt"> }
   | { type: "startWorkout"; key: string | null; snapshot?: Omit<Snapshot, "savedAt"> }
-  | { type: "openWorkout"; workout: Workout };
+  | { type: "openWorkout"; workout: Workout }
+  | { type: "shareFile"; name: string; mime: string; text: string };
 
 const COLORS = {
   light: { bg: "#f4f6f5", text: "#0b4d34", muted: "#66706b", accent: "#0b4d34", accentInk: "#ffffff" },
@@ -176,6 +179,9 @@ function Shell() {
           await saveWorkout(msg.workout);
           openWorkout(msg.workout);
           break;
+        case "shareFile":
+          shareFile(msg.name, msg.mime, msg.text);
+          break;
         case "healthSync":
           syncHealth(msg.days);
           break;
@@ -287,6 +293,19 @@ function Shell() {
       {workoutScreen}
     </SafeAreaView>
   );
+}
+
+/** Write a file (e.g. a CSV export) and open the share sheet: Save to Files, Mail, AirDrop. */
+async function shareFile(name: string, mime: string, text: string) {
+  try {
+    const file = new File(Paths.cache, name.replace(/[^\w.-]/g, "_"));
+    if (file.exists) file.delete();
+    file.create();
+    file.write(text);
+    await Sharing.shareAsync(file.uri, { mimeType: mime, UTI: mime === "text/csv" ? "public.comma-separated-values-text" : undefined, dialogTitle: name });
+  } catch (e) {
+    Alert.alert("Couldn't export", e instanceof Error ? e.message : "Try again.");
+  }
 }
 
 /** Shown when the website can't load: you can still start or resume a workout on the phone. */
