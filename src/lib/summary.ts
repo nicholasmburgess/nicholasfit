@@ -1,5 +1,6 @@
 import { getExercise } from "./exercises";
 import { volumeKg } from "./progression";
+import { e1rm } from "./records";
 import type { Workout } from "./types";
 
 export type Highlight = { exerciseId: string; text: string };
@@ -24,7 +25,14 @@ export function personalRecords(w: Workout, history: Workout[]): Highlight[] {
       }
       const repsAt = Math.max(...done.filter((s) => s.weight === best).map((s) => s.reps ?? 0));
       const pastRepsAt = Math.max(0, ...past.filter((s) => s.weight === best).map((s) => s.reps ?? 0));
-      if (repsAt > pastRepsAt) out.push({ exerciseId: e.exerciseId, text: `${ex.name}: most reps at ${best} kg (${repsAt})` });
+      if (pastRepsAt > 0 && repsAt > pastRepsAt) {
+        out.push({ exerciseId: e.exerciseId, text: `${ex.name}: most reps at ${best} kg (${repsAt})` });
+        continue;
+      }
+      // A lighter set with more reps can still be your strongest: compare estimated 1-rep maxes.
+      const top = Math.max(...done.map((s) => e1rm(s.weight, s.reps)));
+      const pastTop = Math.max(0, ...past.map((s) => e1rm(s.weight, s.reps)));
+      if (top > pastTop && pastTop > 0) out.push({ exerciseId: e.exerciseId, text: `${ex.name}: new estimated 1-rep max, ${Math.round(top)} kg` });
     } else {
       const best = Math.max(...done.map((s) => s.reps ?? 0));
       const pastBest = Math.max(...past.map((s) => s.reps ?? 0));

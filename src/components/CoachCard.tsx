@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { coachSessions, reviewDue, weeksTraining } from "@/lib/coach";
 import { listHealthDays, recoverySummary } from "@/lib/health-store";
-import { applyChange, describeChange, planStore, weekKey, type Plan, type PlanChange } from "@/lib/plan";
+import { applyChange, describeChange, weekKey, type Plan, type PlanChange } from "@/lib/plan";
+import { planStore } from "@/lib/plan-store";
 import type { Workout } from "@/lib/types";
 
 type Review = { summary: string; changes: PlanChange[] };

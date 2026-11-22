@@ -47,6 +47,18 @@ const isNetworkError = (e: unknown) => {
   return /fetch|network|load failed|offline|timed? ?out/i.test(msg) || (typeof navigator !== "undefined" && !navigator.onLine);
 };
 
+/**
+ * Stop syncing a workout from this page because the iPhone app's workout screen is taking it over,
+ * so an older copy here can't later overwrite newer sets logged there.
+ */
+export async function releaseToNative(id: string) {
+  const box = read<Outbox>(OUTBOX, {});
+  delete box[id];
+  write(OUTBOX, box);
+  await inFlight.get(id)?.catch(() => {});
+  announce();
+}
+
 export function syncedStore(remote: Store): Store {
   /** Sends the newest outbox version of one workout; loops if a newer one arrives meanwhile. */
   function push(id: string): Promise<void> {

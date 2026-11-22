@@ -40,7 +40,14 @@
           ],
           "bluetoothAlwaysPermission": "Nicholasfit connects to your heart rate strap to show your heart rate during workouts."
         }
-      ]
+      ],
+      [
+        "expo-notifications",
+        {
+          "enableRemoteNotifications": false
+        }
+      ],
+      "expo-sharing"
     ]
   }
 }
