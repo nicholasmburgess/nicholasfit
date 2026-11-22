@@ -1,8 +1,8 @@
 import { isAdjustable, MAX_ADJUSTABLE_SETUPS } from "./adjustable";
 import { getExercise } from "./exercises";
 import { ROUTINES, type Routine } from "./routines";
-import { hasSupabase } from "./supabase/config";
-import { supabase } from "./supabase/client";
+
+// Pure plan logic, shared with the iPhone app. Loading and saving live in plan-store.ts.
 
 export type PlanChange = {
   routine: string;
@@ -106,34 +106,3 @@ export function applyChange(plan: Plan, c: PlanChange): { plan: Plan } | { error
   routines[ri] = { ...r, items };
   return { plan: { ...plan, routines } };
 }
-
-const KEY = "nicholasfit.plan.v1";
-
-function withDefaults(p: Partial<Plan>): Plan {
-  return { ...DEFAULT_PLAN, ...p, rules: p.rules ?? DEFAULT_RULES };
-}
-
-export const planStore = {
-  async get(): Promise<Plan> {
-    try {
-      if (!hasSupabase) {
-        const raw = localStorage.getItem(KEY);
-        return raw ? withDefaults(JSON.parse(raw) as Partial<Plan>) : DEFAULT_PLAN;
-      }
-      const { data, error } = await supabase().from("training_plans").select("plan").maybeSingle();
-      if (error || !data) return DEFAULT_PLAN;
-      return withDefaults(data.plan as Partial<Plan>);
-    } catch {
-      return DEFAULT_PLAN;
-    }
-  },
-  async save(plan: Plan): Promise<void> {
-    if (!hasSupabase) {
-      localStorage.setItem(KEY, JSON.stringify(plan));
-      return;
-    }
-    const { data } = await supabase().auth.getUser();
-    const { error } = await supabase().from("training_plans").upsert({ user_id: data.user?.id, plan, updated_at: new Date().toISOString() });
-    if (error) throw new Error(/training_plans/.test(error.message) ? "Run 0006_plan.sql in Supabase first." : error.message);
-  },
-};

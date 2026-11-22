@@ -1,30 +1,42 @@
+import * as Crypto from "expo-crypto";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { authorize, healthAvailable, readHealth, saveStrengthWorkout } from "./src/health";
-import { HeartRateSession, thin } from "./src/heartRate";
+import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
+import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
+import { WorkoutScreen } from "./src/WorkoutScreen";
+import { buildWorkout } from "@/lib/new-workout";
+import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
+import { nextRoutineKey } from "@/lib/progression";
+import type { Workout } from "@/lib/types";
 
 /** The web app this shell shows. Everything except Health and Bluetooth lives there. */
 const APP_URL = "https://nicholasfit.vercel.app";
 const APP_HOST = new URL(APP_URL).host;
 /** Hosts that sign-in flows (Withings) open inside the app rather than in Safari. */
 const IN_APP_HOSTS = [APP_HOST, "account.withings.com"];
-const BRIDGE_VERSION = 1;
+/** 2: the native workout screen (startWorkout/openWorkout/workoutClosed, session and snapshot). */
+const BRIDGE_VERSION = 2;
 
 type FromWeb =
   | { type: "hello" }
   | { type: "healthSync"; days?: number }
   | { type: "hrStart" }
   | { type: "hrStop" }
-  | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string };
+  | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string }
+  | { type: "session"; session: Session }
+  | { type: "snapshot"; snapshot: Omit<Snapshot, "savedAt"> }
+  | { type: "startWorkout"; key: string | null; snapshot?: Omit<Snapshot, "savedAt"> }
+  | { type: "openWorkout"; workout: Workout };
 
 const COLORS = {
-  light: { bg: "#f4f6f5", text: "#0b4d34", muted: "#66706b" },
-  dark: { bg: "#0a0f0c", text: "#eef2ec", muted: "#8f9b93" },
+  light: { bg: "#f4f6f5", text: "#0b4d34", muted: "#66706b", accent: "#0b4d34", accentInk: "#ffffff" },
+  dark: { bg: "#0a0f0c", text: "#eef2ec", muted: "#8f9b93", accent: "#3cc47f", accentInk: "#06140c" },
 };
 
 export default function App() {
@@ -35,12 +47,18 @@ export default function App() {
   );
 }
 
+type Open = { workout: Workout; history: Workout[] };
+
 function Shell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
   const c = COLORS[scheme];
   const web = useRef<ComponentRef<typeof WebView>>(null);
   const hr = useRef<HeartRateSession | null>(null);
+  const [hrState, setHrState] = useState<HrUpdate | null>(null);
   const [failed, setFailed] = useState(false);
+  const [open, setOpen] = useState<Open | null>(null);
+  /** The website has loaded and talked to us, so it can take a workout back. */
+  const webReady = useRef(false);
 
   const send = useCallback((msg: object) => {
     const js = `window.dispatchEvent(new CustomEvent("nicholasfit-native", { detail: ${JSON.stringify(msg)} })); true;`;
@@ -60,11 +78,75 @@ function Shell() {
     [send],
   );
 
+  const startHr = useCallback(() => {
+    activateKeepAwakeAsync("workout").catch(() => {});
+    if (hr.current) return;
+    hr.current = new HeartRateSession((u) => {
+      setHrState(u);
+      send({ type: "hr", ...u });
+    });
+    hr.current.start();
+  }, [send]);
+
   const stopHr = useCallback(() => {
     hr.current?.stop();
     hr.current = null;
+    setHrState(null);
     deactivateKeepAwake("workout");
   }, []);
+
+  /** Save a finished strength workout (with heart rate) to Apple Health. */
+  const saveToHealth = useCallback(
+    async (w: { id: string; name: string; startedAt: string; finishedAt: string }) => {
+      const samples = thin(hr.current?.samples ?? [], Date.parse(w.startedAt), Date.parse(w.finishedAt));
+      stopHr();
+      if (!healthAvailable()) return;
+      try {
+        await authorize();
+        const stats = await saveStrengthWorkout(w, samples);
+        send({ type: "workoutSaved", id: w.id, ...stats });
+      } catch (err) {
+        send({ type: "workoutSaved", id: w.id, error: err instanceof Error ? err.message : "Couldn't save to Apple Health" });
+      }
+    },
+    [send, stopHr],
+  );
+
+  const openWorkout = useCallback(
+    async (w: Workout) => {
+      const snap = await getSnapshot();
+      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id) });
+      startHr();
+    },
+    [startHr],
+  );
+
+  /** Start a routine on the phone, using the plan and history the website last handed over. Works with no signal. */
+  const startWorkout = useCallback(
+    async (key: string | null) => {
+      const existing = await activeWorkout();
+      if (existing) return openWorkout(existing);
+      const snap = await getSnapshot();
+      const w = buildWorkout(Crypto.randomUUID(), snap?.history ?? [], key, snap?.plan ?? DEFAULT_PLAN);
+      await saveWorkout(w);
+      openWorkout(w);
+    },
+    [openWorkout],
+  );
+
+  /** Give the workout back to the website, which saves it and shows it. */
+  const handBack = useCallback(
+    async (w: Workout, discarded = false) => {
+      await release(w);
+      send({ type: "workoutClosed", workout: w, discarded });
+    },
+    [send],
+  );
+
+  // A workout left open on the phone (app closed mid-session) comes straight back.
+  useEffect(() => {
+    activeWorkout().then((w) => w && openWorkout(w));
+  }, [openWorkout]);
 
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
@@ -76,57 +158,89 @@ function Shell() {
       }
       switch (msg.type) {
         case "hello":
+          webReady.current = true;
           send({ type: "native", version: BRIDGE_VERSION, health: healthAvailable(), bluetooth: true });
+          break;
+        case "session":
+          saveSession(msg.session);
+          break;
+        case "snapshot":
+          saveSnapshot({ ...msg.snapshot, savedAt: new Date().toISOString() });
+          break;
+        case "startWorkout":
+          if (msg.snapshot) await saveSnapshot({ ...msg.snapshot, savedAt: new Date().toISOString() });
+          startWorkout(msg.key);
+          break;
+        case "openWorkout":
+          if (msg.workout.finishedAt) break;
+          await saveWorkout(msg.workout);
+          openWorkout(msg.workout);
           break;
         case "healthSync":
           syncHealth(msg.days);
           break;
         case "hrStart":
-          activateKeepAwakeAsync("workout").catch(() => {});
-          if (!hr.current) {
-            hr.current = new HeartRateSession((u) => send({ type: "hr", ...u }));
-            hr.current.start();
-          }
+          startHr();
           break;
         case "hrStop":
           stopHr();
           break;
-        case "workoutFinished": {
-          const from = Date.parse(msg.startedAt);
-          const to = Date.parse(msg.finishedAt);
-          const samples = thin(hr.current?.samples ?? [], from, to);
-          stopHr();
-          if (!healthAvailable()) break;
-          try {
-            await authorize();
-            const stats = await saveStrengthWorkout(msg, samples);
-            send({ type: "workoutSaved", id: msg.id, ...stats });
-          } catch (err) {
-            send({ type: "workoutSaved", id: msg.id, error: err instanceof Error ? err.message : "Couldn't save to Apple Health" });
-          }
+        case "workoutFinished":
+          saveToHealth(msg);
           break;
-        }
       }
     },
-    [send, syncHealth, stopHr],
+    [send, syncHealth, startHr, stopHr, saveToHealth, startWorkout, openWorkout],
   );
 
   // Tell the page whenever the app comes back to the front so it can refresh (and re-sync Health).
   useEffect(() => {
-    const sub = AppState.addEventListener("change", (s) => s === "active" && send({ type: "resumed" }));
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") send({ type: "resumed" });
+    });
     return () => sub.remove();
   }, [send]);
 
   useEffect(() => stopHr, [stopHr]);
 
+  const workoutScreen = open && (
+    <View style={StyleSheet.absoluteFill}>
+      <WorkoutScreen
+        key={open.workout.id}
+        initial={open.workout}
+        history={open.history}
+        hr={hrState}
+        onFinish={async (w) => {
+          setOpen(null);
+          saveToHealth({ id: w.id, name: w.name, startedAt: w.startedAt, finishedAt: w.finishedAt! });
+          // With the website open it takes over (summary, coach); otherwise the phone syncs it later.
+          if (webReady.current && !failed) await handBack(w);
+          else Alert.alert("Workout saved", "It's on this phone and will sync when you have signal.");
+        }}
+        onDiscard={async (w) => {
+          setOpen(null);
+          stopHr();
+          if (webReady.current && !failed) await handBack(w, true);
+          else {
+            await release(w);
+            deleteRemote(w.id);
+          }
+        }}
+        onOpenWeb={async (w) => {
+          if (!webReady.current || failed)
+            return Alert.alert("Needs signal", "Swapping or adding exercises uses the full app, which can't load right now. Your sets are saved.");
+          setOpen(null);
+          await handBack(w);
+        }}
+      />
+    </View>
+  );
+
   if (failed)
     return (
-      <View style={[styles.center, { backgroundColor: c.bg }]}>
-        <Text style={[styles.title, { color: c.text }]}>Can't reach Nicholasfit</Text>
-        <Text style={[styles.body, { color: c.muted }]}>Check your internet connection and try again.</Text>
-        <Pressable onPress={() => setFailed(false)} style={[styles.button, { borderColor: c.text }]}>
-          <Text style={{ color: c.text, fontWeight: "600" }}>Try again</Text>
-        </Pressable>
+      <View style={{ flex: 1 }}>
+        <OfflineHome c={c} onRetry={() => setFailed(false)} onStart={startWorkout} />
+        {workoutScreen}
       </View>
     );
 
@@ -153,7 +267,10 @@ function Shell() {
             <ActivityIndicator color={c.text} />
           </View>
         )}
-        onError={() => setFailed(true)}
+        onError={() => {
+          webReady.current = false;
+          setFailed(true);
+        }}
         onContentProcessDidTerminate={() => web.current?.reload()}
         onShouldStartLoadWithRequest={(req: ShouldStartLoadRequest) => {
           let host = "";
@@ -167,7 +284,56 @@ function Shell() {
           return false;
         }}
       />
+      {workoutScreen}
     </SafeAreaView>
+  );
+}
+
+/** Shown when the website can't load: you can still start or resume a workout on the phone. */
+function OfflineHome({ c, onRetry, onStart }: { c: (typeof COLORS)["light"]; onRetry: () => void; onStart: (key: string | null) => void }) {
+  const [snap, setSnap] = useState<Snapshot | null | undefined>(undefined);
+  const [active, setActive] = useState<Workout | null>(null);
+  useEffect(() => {
+    getSnapshot().then(setSnap);
+    activeWorkout().then(setActive);
+  }, []);
+  const routines = planRoutines(snap?.plan ?? DEFAULT_PLAN);
+  const nextKey = nextRoutineKey(snap?.history ?? []);
+  const next = routines.find((r) => r.key === nextKey) ?? routines[0];
+  return (
+    <View style={[styles.center, { backgroundColor: c.bg }]}>
+      <Text style={[styles.title, { color: c.text }]}>No signal</Text>
+      <Text style={[styles.body, { color: c.muted }]}>
+        {snap ? "You can still train. Your sets save on this phone and sync later." : "Open the app once with signal so it can work offline."}
+      </Text>
+      {snap && (
+        <View style={{ alignSelf: "stretch", gap: 10, marginTop: 12 }}>
+          {active ? (
+            <Pressable onPress={() => onStart(null)} style={[styles.primary, { backgroundColor: c.accent }]}>
+              <Text style={{ color: c.accentInk, fontSize: 18, fontWeight: "700" }}>Resume {active.name}</Text>
+            </Pressable>
+          ) : (
+            <>
+              {next && (
+                <Pressable onPress={() => onStart(next.key)} style={[styles.primary, { backgroundColor: c.accent }]}>
+                  <Text style={{ color: c.accentInk, fontSize: 18, fontWeight: "700" }}>Start {next.name}</Text>
+                </Pressable>
+              )}
+              {routines
+                .filter((r) => r.key !== next?.key)
+                .map((r) => (
+                  <Pressable key={r.key} onPress={() => onStart(r.key)} style={[styles.primary, { borderWidth: 1, borderColor: c.muted }]}>
+                    <Text style={{ color: c.text, fontSize: 16, fontWeight: "600" }}>Start {r.name}</Text>
+                  </Pressable>
+                ))}
+            </>
+          )}
+        </View>
+      )}
+      <Pressable onPress={onRetry} style={[styles.button, { borderColor: c.text }]}>
+        <Text style={{ color: c.text, fontWeight: "600" }}>Try again</Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -176,4 +342,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "700" },
   body: { fontSize: 15, textAlign: "center" },
   button: { marginTop: 8, borderWidth: 1, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
+  primary: { height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 });

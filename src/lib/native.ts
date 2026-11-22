@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { Plan } from "@/lib/plan";
+import type { Workout } from "@/lib/types";
 
 /**
  * Bridge to the Nicholasfit iPhone app (mobile/), which shows this site in a web view and adds
@@ -25,19 +27,35 @@ export type FromNative =
   | { type: "resumed" }
   | ({ type: "healthData"; error?: string } & Partial<{ days: HealthDay[]; workouts: HealthWorkout[] }>)
   | HrUpdate
-  | { type: "workoutSaved"; id: string; avgHr?: number | null; maxHr?: number | null; error?: string };
+  | { type: "workoutSaved"; id: string; avgHr?: number | null; maxHr?: number | null; error?: string }
+  /** The phone's workout screen closed: the site takes the workout back (saves, shows it, or deletes it). */
+  | { type: "workoutClosed"; workout: Workout; discarded?: boolean };
 
 export const isNativeApp = () => typeof window !== "undefined" && !!window.NicholasfitNative && !!window.ReactNativeWebView;
+/** 2 and up: the iPhone app has its own workout screen. */
+export const nativeVersion = () => (isNativeApp() ? (window.NicholasfitNative?.version ?? 0) : 0);
+export const hasNativeWorkout = () => nativeVersion() >= 2;
 
 export type ToNative =
   | { type: "hello" }
   | { type: "healthSync"; days?: number }
   | { type: "hrStart" }
   | { type: "hrStop" }
-  | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string };
+  | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string }
+  | { type: "session"; session: { url: string; anonKey: string; accessToken: string; refreshToken: string; expiresAt: number } }
+  | { type: "snapshot"; snapshot: { plan: Plan; history: Workout[] } }
+  | { type: "startWorkout"; key: string | null; snapshot?: { plan: Plan; history: Workout[] } }
+  | { type: "openWorkout"; workout: Workout };
 
 export function postNative(msg: ToNative) {
   if (isNativeApp()) window.ReactNativeWebView!.postMessage(JSON.stringify(msg));
+}
+
+/** Hand an unfinished workout to the iPhone app's workout screen. */
+export async function openOnPhone(w: Workout) {
+  const { releaseToNative } = await import("@/lib/store/synced");
+  await releaseToNative(w.id);
+  postNative({ type: "openWorkout", workout: w });
 }
 
 export function onNative(fn: (msg: FromNative) => void): () => void {

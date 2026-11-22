@@ -6,9 +6,11 @@ import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { formatDate, formatDuration, startOfWeek } from "@/lib/format";
 import { doneSetCount, nextRoutineKey, workoutSummary } from "@/lib/progression";
-import { DEFAULT_PLAN, planRoutines, planStore, type Plan } from "@/lib/plan";
+import { DEFAULT_PLAN, planRoutines, type Plan } from "@/lib/plan";
+import { planStore } from "@/lib/plan-store";
 import { CoachCard } from "@/components/CoachCard";
 import { startWorkout } from "@/lib/start";
+import { hasNativeWorkout, openOnPhone, postNative } from "@/lib/native";
 import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
 import { useWorkouts } from "@/lib/useWorkouts";
@@ -36,6 +38,12 @@ export default function Home() {
 
   async function start(key: string | null) {
     setStarting(key ?? "custom");
+    if (hasNativeWorkout()) {
+      // The iPhone app's own workout screen builds and runs it, signal or not.
+      postNative({ type: "startWorkout", key, snapshot: { plan: plan!, history: finished.slice(0, 60) } });
+      setTimeout(() => setStarting(null), 1500);
+      return;
+    }
     const id = await startWorkout(workouts!, key, plan!);
     router.push(`/workout/${id}`);
   }
@@ -54,9 +62,15 @@ export default function Home() {
           <p className="text-sm text-muted">In progress</p>
           <h2 className="text-lg font-semibold">{active.name}</h2>
           <p className="mb-3 text-sm text-muted">Started {formatDate(active.startedAt)}, {doneSetCount(active)} sets done</p>
-          <Link href={`/workout/${active.id}`} className="block rounded-xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
-            Resume workout
-          </Link>
+          {hasNativeWorkout() ? (
+            <button className="block w-full rounded-xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink" onClick={() => openOnPhone(active)}>
+              Resume workout
+            </button>
+          ) : (
+            <Link href={`/workout/${active.id}`} className="block rounded-xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
+              Resume workout
+            </Link>
+          )}
         </Card>
       ) : (
         <div className="rounded-3xl bg-hero p-5 text-hero-ink shadow-card">

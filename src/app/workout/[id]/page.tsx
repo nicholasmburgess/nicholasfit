@@ -10,13 +10,14 @@ import { SetRow } from "@/components/SetRow";
 import { ExerciseDemo } from "@/components/ExerciseDemo";
 import { NumberSheet } from "@/components/NumberSheet";
 import { WorkoutSummary } from "@/components/WorkoutSummary";
+import { WORKOUT_EVENT } from "@/components/NativeBridge";
 import { describePlates, warmupSets } from "@/lib/plates";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
 import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
 import { DEFAULT_TARGET } from "@/lib/routines";
-import { postNative, useHeartRate } from "@/lib/native";
+import { hasNativeWorkout, openOnPhone, postNative, useHeartRate } from "@/lib/native";
 import { store } from "@/lib/store";
 import { SYNC_EVENT, pendingSync } from "@/lib/store/synced";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
@@ -45,6 +46,19 @@ export default function WorkoutPage() {
   }, [id]);
 
   latest.current = workout ?? null;
+
+  // The iPhone app's workout screen handed this workout back: show its sets.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const fresh = (e as CustomEvent<Workout>).detail;
+      if (fresh.id !== id) return;
+      dirty.current = false;
+      latest.current = fresh;
+      setWorkout(fresh);
+    };
+    window.addEventListener(WORKOUT_EVENT, on);
+    return () => window.removeEventListener(WORKOUT_EVENT, on);
+  }, [id]);
 
   async function flush() {
     const w = latest.current;
@@ -221,6 +235,19 @@ export default function WorkoutPage() {
           </Button>
         )}
       </header>
+
+      {!w.finishedAt && hasNativeWorkout() && (
+        <Button
+          className="w-full"
+          onClick={async () => {
+            await flushRef.current();
+            dirty.current = false;
+            await openOnPhone(latest.current ?? w);
+          }}
+        >
+          Back to workout screen
+        </Button>
+      )}
 
       {setups.length > 0 && !readOnly && (
         <p className={`-mt-2 text-xs ${setups.length > MAX_ADJUSTABLE_SETUPS ? "text-warn" : "text-muted"}`}>
