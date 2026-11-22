@@ -1,4 +1,5 @@
 import db from "@/data/exercise-db.json";
+import pool from "@/data/exercise-pool.json";
 import type { Unit } from "./types";
 
 export type LoadType = "barbell" | "dumbbell" | "cable" | "kettlebell" | "bodyweight" | "machine";
@@ -67,15 +68,11 @@ const META: Record<string, Meta> = {
     mistakes: ["Arching the lower back instead of extending the hips", "Feet too far forward"],
   },
   Dumbbell_Shoulder_Press: {
-    pattern: "Push", load: "dumbbell", increment: 2,
-    cues: ["Seated or standing, dumbbells at shoulder height", "Brace your core, ribs down", "Press up until arms are straight, bells close together", "Lower under control to shoulder height"],
+    name: "Seated Dumbbell Shoulder Press", pattern: "Push", load: "dumbbell", increment: 2,
+    cues: ["Sit on the bench set upright, back supported, dumbbells at shoulder height", "Brace your core, ribs down", "Press up until arms are straight, bells close together", "Lower under control to shoulder height"],
     mistakes: ["Leaning back and arching the lower back", "Cutting the range short"],
   },
-  Standing_Military_Press: {
-    name: "Overhead Press", pattern: "Push", load: "barbell", increment: 2.5,
-    cues: ["Bar on the front of your shoulders, grip just outside them", "Squeeze glutes and brace", "Press straight up, moving your head back then through", "Lock out with the bar over mid-foot"],
-    mistakes: ["Leaning back into a standing incline press", "Pressing the bar forward instead of up"],
-  },
+
   "Wide-Grip_Lat_Pulldown": {
     name: "Lat Pulldown", pattern: "Pull", load: "cable", increment: 2.5,
     cues: ["Grip a little wider than shoulders", "Lean back slightly, chest up", "Pull the bar to your upper chest, elbows down and back", "Let it rise slowly until arms are straight"],
@@ -131,6 +128,36 @@ const META: Record<string, Meta> = {
     cues: ["Stand side-on to the cable, handle at your chest", "Press straight out and hold for a second", "Don't let the cable twist you"],
     mistakes: ["Rotating toward the cable", "Standing too close, so there's no tension"],
   },
+  Seated_Barbell_Military_Press: {
+    name: "Seated Barbell Shoulder Press", pattern: "Push", load: "barbell", increment: 2.5,
+    cues: ["Bench upright inside the rack, bar set just above shoulder height when seated", "Grip just wider than shoulders, back against the pad", "Press straight up, moving your head back slightly so the bar passes your face", "Lower to your upper chest under control"],
+    mistakes: ["Arching off the backrest to push the weight", "Bar drifting forward away from your face"],
+  },
+  "Barbell_Incline_Bench_Press_-_Medium_Grip": {
+    name: "Incline Bench Press", pattern: "Push", load: "barbell", increment: 2.5,
+    cues: ["Bench at about 30 degrees, safeties at chest height", "Shoulder blades back and down", "Lower to your upper chest", "Press up and slightly back over your shoulders"],
+    mistakes: ["Bench set too steep", "Bouncing the bar off your chest"],
+  },
+  Side_Lateral_Raise: {
+    name: "Lateral Raise", pattern: "Push", load: "dumbbell", increment: 1,
+    cues: ["Light dumbbells at your sides, slight bend in the elbows", "Raise out to the sides until arms are level with your shoulders", "Lead with the elbows, thumbs level or slightly down", "Lower slowly"],
+    mistakes: ["Swinging the body to lift the weight", "Shrugging the shoulders up"],
+  },
+  Cable_Seated_Lateral_Raise: {
+    name: "Cable Lateral Raise", pattern: "Push", load: "cable", increment: 2.5,
+    cues: ["Pulley at the lowest setting, stand or sit side-on", "Raise the handle out to the side to shoulder height", "Slow on the way down, keep tension"],
+    mistakes: ["Leaning away to cheat the weight up", "Going above shoulder height"],
+  },
+  Cable_Rear_Delt_Fly: {
+    name: "Cable Rear Delt Fly", pattern: "Pull", load: "cable", increment: 2.5,
+    cues: ["Pulleys at shoulder height, cross the cables and hold opposite handles", "Arms nearly straight, pull out and back to a T", "Squeeze between the shoulder blades, return slowly"],
+    mistakes: ["Turning it into a row by bending the elbows a lot", "Using momentum"],
+  },
+  Pushups: {
+    name: "Push-up", pattern: "Push", load: "bodyweight", increment: 0,
+    cues: ["Hands just wider than shoulders, body in a straight line", "Lower until your chest is a fist above the floor", "Elbows about 45 degrees from your body", "Too hard? Put your hands on the bench"],
+    mistakes: ["Hips sagging", "Only going halfway down"],
+  },
   Rowing_Stationary: {
     name: "Rowing (Concept2)", pattern: "Cardio", load: "machine", increment: 0, unit: "minutes",
     cues: ["Legs, then body, then arms on the drive", "Arms, then body, then legs on the recovery", "Easy pace you could hold a conversation at", "Damper around 3 to 5"],
@@ -150,9 +177,53 @@ export const EXERCISES: Exercise[] = db.map((e) => {
 
 const BY_ID = new Map(EXERCISES.map((e) => [e.id, e]));
 
-export function getExercise(id: string): Exercise | undefined {
-  return BY_ID.get(id);
+type PoolExercise = (typeof pool)[number];
+
+const LOADS: Record<string, LoadType> = { barbell: "barbell", dumbbell: "dumbbell", cable: "cable", kettlebells: "kettlebell", "body only": "bodyweight" };
+const INCREMENT: Record<LoadType, number> = { barbell: 2.5, dumbbell: 2, cable: 2.5, kettlebell: 2, bodyweight: 0, machine: 0 };
+
+function patternFor(e: PoolExercise): Pattern {
+  const m = e.primaryMuscles[0] ?? "";
+  if (/lunge|split|step/i.test(e.id)) return "Lunge";
+  if (m === "quadriceps" || m === "calves" || m === "adductors" || m === "abductors") return "Squat";
+  if (m === "hamstrings" || m === "glutes" || m === "lower back") return "Hinge";
+  if (m === "shoulders" && /rear|reverse|row/i.test(e.id)) return "Pull";
+  if (m === "chest" || m === "shoulders") return "Push";
+  if (m === "lats" || m === "middle back" || m === "traps") return "Pull";
+  if (m === "abdominals") return "Core";
+  return "Arms";
 }
+
+/**
+ * Extra exercises from Free Exercise DB that the weekly coach can add (filtered for the home gym
+ * and the low ceiling). They get generic settings and the database's own instructions as cues.
+ */
+const POOL = new Map(
+  pool.map((e): [string, Exercise] => {
+    const load = LOADS[e.equipment] ?? "bodyweight";
+    return [
+      e.id,
+      {
+        ...e,
+        category: "strength",
+        name: e.name,
+        pattern: patternFor(e),
+        load,
+        increment: INCREMENT[load],
+        unit: "reps",
+        cues: e.instructions,
+        mistakes: [],
+      } as Exercise,
+    ];
+  }),
+);
+
+export function getExercise(id: string): Exercise | undefined {
+  return BY_ID.get(id) ?? POOL.get(id);
+}
+
+/** Exercises outside the core library that the coach may pick from. */
+export const EXTRA_EXERCISES: Exercise[] = [...POOL.values()];
 
 export const PATTERNS: Pattern[] = ["Squat", "Hinge", "Push", "Pull", "Lunge", "Arms", "Core", "Cardio"];
 

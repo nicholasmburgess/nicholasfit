@@ -289,31 +289,6 @@
     ]
   },
   {
-    "id": "Standing_Military_Press",
-    "name": "Standing Military Press",
-    "equipment": "barbell",
-    "level": "beginner",
-    "category": "strength",
-    "primaryMuscles": [
-      "shoulders"
-    ],
-    "secondaryMuscles": [
-      "triceps"
-    ],
-    "instructions": [
-      "Start by placing a barbell that is about chest high on a squat rack. Once you have selected the weights, grab the barbell using a pronated (palms facing forward) grip. Make sure to grip the bar wider than shoulder width apart from each other.",
-      "Slightly bend the knees and place the barbell on your collar bone. Lift the barbell up keeping it lying on your chest. Take a step back and position your feet shoulder width apart from each other.",
-      "Once you pick up the barbell with the correct grip length, lift the bar up over your head by locking your arms. Hold at about shoulder level and slightly in front of your head. This is your starting position.",
-      "Lower the bar down to the collarbone slowly as you inhale.",
-      "Lift the bar back up to the starting position as you exhale.",
-      "Repeat for the recommended amount of repetitions."
-    ],
-    "images": [
-      "/demos/Standing_Military_Press/0.jpg",
-      "/demos/Standing_Military_Press/1.jpg"
-    ]
-  },
-  {
     "id": "Wide-Grip_Lat_Pulldown",
     "name": "Wide-Grip Lat Pulldown",
     "equipment": "cable",
@@ -594,6 +569,148 @@
     "images": [
       "/demos/Rowing_Stationary/0.jpg",
       "/demos/Rowing_Stationary/1.jpg"
+    ]
+  },
+  {
+    "id": "Seated_Barbell_Military_Press",
+    "name": "Seated Barbell Military Press",
+    "equipment": "barbell",
+    "level": "intermediate",
+    "category": "strength",
+    "primaryMuscles": [
+      "shoulders"
+    ],
+    "secondaryMuscles": [
+      "triceps"
+    ],
+    "instructions": [
+      "Sit on a Military Press Bench with a bar behind your head and either have a spotter give you the bar (better on the rotator cuff this way) or pick it up yourself carefully with a pronated grip (palms facing forward). Tip: Your grip should be wider than shoulder width and it should create a 90-degree angle between the forearm and the upper arm as the barbell goes down.",
+      "Once you pick up the barbell with the correct grip length, lift the bar up over your head by locking your arms. Hold at about shoulder level and slightly in front of your head. This is your starting position.",
+      "Lower the bar down to the collarbone slowly as you inhale.",
+      "Lift the bar back up to the starting position as you exhale.",
+      "Repeat for the recommended amount of repetitions."
+    ],
+    "images": [
+      "/demos/Seated_Barbell_Military_Press/0.jpg",
+      "/demos/Seated_Barbell_Military_Press/1.jpg"
+    ]
+  },
+  {
+    "id": "Barbell_Incline_Bench_Press_-_Medium_Grip",
+    "name": "Barbell Incline Bench Press - Medium Grip",
+    "equipment": "barbell",
+    "level": "beginner",
+    "category": "strength",
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "shoulders",
+      "triceps"
+    ],
+    "instructions": [
+      "Lie back on an incline bench. Using a medium-width grip (a grip that creates a 90-degree angle in the middle of the movement between the forearms and the upper arms), lift the bar from the rack and hold it straight over you with your arms locked. This will be your starting position.",
+      "As you breathe in, come down slowly until you feel the bar on you upper chest.",
+      "After a second pause, bring the bar back to the starting position as you breathe out and push the bar using your chest muscles. Lock your arms in the contracted position, squeeze your chest, hold for a second and then start coming down slowly again. Tip: it should take at least twice as long to go down than to come up.",
+      "Repeat the movement for the prescribed amount of repetitions.",
+      "When you are done, place the bar back in the rack."
+    ],
+    "images": [
+      "/demos/Barbell_Incline_Bench_Press_-_Medium_Grip/0.jpg",
+      "/demos/Barbell_Incline_Bench_Press_-_Medium_Grip/1.jpg"
+    ]
+  },
+  {
+    "id": "Side_Lateral_Raise",
+    "name": "Side Lateral Raise",
+    "equipment": "dumbbell",
+    "level": "beginner",
+    "category": "strength",
+    "primaryMuscles": [
+      "shoulders"
+    ],
+    "secondaryMuscles": [],
+    "instructions": [
+      "Pick a couple of dumbbells and stand with a straight torso and the dumbbells by your side at arms length with the palms of the hand facing you. This will be your starting position.",
+      "While maintaining the torso in a stationary position (no swinging), lift the dumbbells to your side with a slight bend on the elbow and the hands slightly tilted forward as if pouring water in a glass. Continue to go up until you arms are parallel to the floor. Exhale as you execute this movement and pause for a second at the top.",
+      "Lower the dumbbells back down slowly to the starting position as you inhale.",
+      "Repeat for the recommended amount of repetitions."
+    ],
+    "images": [
+      "/demos/Side_Lateral_Raise/0.jpg",
+      "/demos/Side_Lateral_Raise/1.jpg"
+    ]
+  },
+  {
+    "id": "Cable_Seated_Lateral_Raise",
+    "name": "Cable Seated Lateral Raise",
+    "equipment": "cable",
+    "level": "beginner",
+    "category": "strength",
+    "primaryMuscles": [
+      "shoulders"
+    ],
+    "secondaryMuscles": [
+      "middle back",
+      "traps"
+    ],
+    "instructions": [
+      "Stand in the middle of two low pulleys that are opposite to each other and place a flat bench right behind you (in perpendicular fashion to you; the narrow edge of the bench should be the one behind you). Select the weight to be used on each pulley.",
+      "Now sit at the edge of the flat bench behind you with your feet placed in front of your knees.",
+      "Bend forward while keeping your back flat and rest your torso on the thighs.",
+      "Have someone give you the single handles attached to the pulleys. Grasp the left pulley with the right hand and the right pulley with the left after you select your weight. The pulleys should run under your knees and your arms will be extended with palms facing each other and a slight bend at the elbows. This will be the starting position.",
+      "While keeping the arms stationary, raise the upper arms to the sides until they are parallel to the floor and at shoulder height. Exhale during the execution of this movement and hold the contraction for a second.",
+      "Slowly lower your arms to the starting position as you inhale.",
+      "Repeat for the recommended amount of repetitions. Tip: Maintain upper arms perpendicular to torso and a fixed elbow position (10 degree to 30 degree angle) throughout exercise."
+    ],
+    "images": [
+      "/demos/Cable_Seated_Lateral_Raise/0.jpg",
+      "/demos/Cable_Seated_Lateral_Raise/1.jpg"
+    ]
+  },
+  {
+    "id": "Cable_Rear_Delt_Fly",
+    "name": "Cable Rear Delt Fly",
+    "equipment": "cable",
+    "level": "beginner",
+    "category": "strength",
+    "primaryMuscles": [
+      "shoulders"
+    ],
+    "secondaryMuscles": [],
+    "instructions": [
+      "Adjust the pulleys to the appropriate height and adjust the weight. The pulleys should be above your head.",
+      "Grab the left pulley with your right hand and the right pulley with your left hand, crossing them in front of you. This will be your starting position.",
+      "Initiate the movement by moving your arms back and outward, keeping your arms straight as you execute the movement.",
+      "Pause at the end of the motion before returning the handles to the start position."
+    ],
+    "images": [
+      "/demos/Cable_Rear_Delt_Fly/0.jpg",
+      "/demos/Cable_Rear_Delt_Fly/1.jpg"
+    ]
+  },
+  {
+    "id": "Pushups",
+    "name": "Pushups",
+    "equipment": "body only",
+    "level": "beginner",
+    "category": "strength",
+    "primaryMuscles": [
+      "chest"
+    ],
+    "secondaryMuscles": [
+      "shoulders",
+      "triceps"
+    ],
+    "instructions": [
+      "Lie on the floor face down and place your hands about 36 inches apart while holding your torso up at arms length.",
+      "Next, lower yourself downward until your chest almost touches the floor as you inhale.",
+      "Now breathe out and press your upper body back up to the starting position while squeezing your chest.",
+      "After a brief pause at the top contracted position, you can begin to lower yourself downward again for as many repetitions as needed."
+    ],
+    "images": [
+      "/demos/Pushups/0.jpg",
+      "/demos/Pushups/1.jpg"
     ]
   }
 ]

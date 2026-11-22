@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { formatDate, formatDuration, startOfWeek } from "@/lib/format";
 import { doneSetCount, nextRoutineKey, workoutSummary } from "@/lib/progression";
-import { ROUTINES, getRoutine } from "@/lib/routines";
+import { DEFAULT_PLAN, planRoutines, planStore, type Plan } from "@/lib/plan";
+import { CoachCard } from "@/components/CoachCard";
 import { startWorkout } from "@/lib/start";
 import { hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
@@ -18,19 +19,24 @@ export default function Home() {
   const router = useRouter();
   const { workouts, error } = useWorkouts();
   const [starting, setStarting] = useState<string | null>(null);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  useEffect(() => {
+    planStore.get().then(setPlan);
+  }, []);
 
-  if (!workouts) return <p className="pt-10 text-center text-muted">Loading…</p>;
+  if (!workouts || !plan) return <p className="pt-10 text-center text-muted">Loading…</p>;
 
   const active = workouts.find((w) => !w.finishedAt);
   const finished = workouts.filter((w) => w.finishedAt);
   const nextKey = nextRoutineKey(workouts);
-  const next = getRoutine(nextKey)!;
+  const routines = planRoutines(plan ?? DEFAULT_PLAN);
+  const next = routines.find((r) => r.key === nextKey)!;
   const weekStart = startOfWeek().toISOString();
   const strengthThisWeek = finished.filter((w) => w.startedAt >= weekStart && (w.templateKey === "A" || w.templateKey === "B" || w.templateKey === null)).length;
 
   async function start(key: string | null) {
     setStarting(key ?? "custom");
-    const id = await startWorkout(workouts!, key);
+    const id = await startWorkout(workouts!, key, plan!);
     router.push(`/workout/${id}`);
   }
 
@@ -61,7 +67,7 @@ export default function Home() {
             {starting === nextKey ? "Starting…" : `Start ${next.name}`}
           </Button>
           <div className="mt-3 flex gap-2">
-            {ROUTINES.filter((r) => r.key !== nextKey).map((r) => (
+            {routines.filter((r) => r.key !== nextKey).map((r) => (
               <Button key={r.key} variant="secondary" className="flex-1 !px-2" onClick={() => start(r.key)} disabled={!!starting}>
                 {r.name}
               </Button>
@@ -72,6 +78,8 @@ export default function Home() {
           </div>
         </Card>
       )}
+
+      {!active && <CoachCard workouts={workouts} plan={plan} onPlan={setPlan} />}
 
       <Card>
         <div className="flex items-baseline justify-between">

@@ -7,10 +7,14 @@ export type Target = {
   restSec: number;
 };
 
+export type Feel = "easy" | "good" | "hard";
+
 export type SetLog = {
   weight: number | null;
   reps: number | null;
   done: boolean;
+  /** How the set felt, tapped after ticking it. Drives the next set's weight and next session's jump. */
+  feel?: Feel;
 };
 
 export type Entry = {

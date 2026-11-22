@@ -61,6 +61,10 @@ Run `supabase/migrations/0004_measurements.sql` in the Supabase SQL Editor.
 2. In the app, open Progress, tap **Home-screen widget** then **Make my widget key**, and follow the steps there. You need the free Scriptable app.
 3. The key is stored only as a hash. Making a new key stops the old scripts working.
 
+## 10. Weekly coach
+
+Run `supabase/migrations/0006_plan.sql` in the Supabase SQL Editor. After three strength sessions, a weekly review card appears on the Today page each Monday.
+
 ## Updating
 
 Every change merged into the `main` branch on GitHub deploys automatically to Vercel within a minute or two.

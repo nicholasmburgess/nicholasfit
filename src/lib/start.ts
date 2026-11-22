@@ -1,11 +1,11 @@
 import { fitAdjustable } from "./adjustable";
 import { buildEntry } from "./progression";
-import { getRoutine } from "./routines";
+import { DEFAULT_PLAN, planRoutines, type Plan } from "./plan";
 import { newId, store } from "./store";
 import type { Workout } from "./types";
 
-export async function startWorkout(history: Workout[], routineKey: string | null): Promise<string> {
-  const routine = routineKey ? getRoutine(routineKey) : undefined;
+export async function startWorkout(history: Workout[], routineKey: string | null, plan: Plan = DEFAULT_PLAN): Promise<string> {
+  const routine = routineKey ? planRoutines(plan).find((r) => r.key === routineKey) : undefined;
   const w: Workout = {
     id: newId(),
     name: routine?.name ?? "Workout",

@@ -14,10 +14,10 @@ import { describePlates, warmupSets } from "@/lib/plates";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
-import { buildEntry, exerciseHistory } from "@/lib/progression";
+import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
 import { DEFAULT_TARGET } from "@/lib/routines";
 import { store } from "@/lib/store";
-import type { Entry, SetLog, Workout } from "@/lib/types";
+import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 
 export default function WorkoutPage() {
   const { id } = useParams<{ id: string }>();
@@ -142,7 +142,7 @@ export default function WorkoutPage() {
       setEditing({ ei, si, field: "weight", thenComplete: true });
       return;
     }
-    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}) });
+    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? {} : { feel: undefined }) });
     setTimeout(() => flushRef.current(), 0);
     if (done && e.target.restSec > 0) setRest({ endsAt: Date.now() + e.target.restSec * 1000, total: e.target.restSec });
   }
@@ -237,6 +237,10 @@ export default function WorkoutPage() {
           readOnly={readOnly}
           onEdit={(si, field) => setEditing({ ei, si, field })}
           onToggle={(si) => toggleDone(ei, si)}
+          onFeel={(si, f) => {
+            updateEntry(ei, (x) => applyFeel(x, si, f));
+            setTimeout(() => flushRef.current(), 0);
+          }}
           onSwap={() => setSwapping(ei)}
           onAddSet={() => updateEntry(ei, (x) => ({ ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] }))}
           onRemoveSet={() => updateEntry(ei, (x) => ({ ...x, sets: x.sets.slice(0, -1) }))}
@@ -336,6 +340,7 @@ function EntryCard({
   readOnly,
   onEdit,
   onToggle,
+  onFeel,
   onSwap,
   onAddSet,
   onRemoveSet,
@@ -346,6 +351,7 @@ function EntryCard({
   readOnly: boolean;
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
+  onFeel: (si: number, f: Feel) => void;
   onSwap: () => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
@@ -358,6 +364,9 @@ function EntryCard({
   const unit = unitLabel(ex.unit);
   const wLabel = weightLabel(ex);
   const plateWeight = (entry.sets.find((s) => !s.done) ?? entry.sets.at(-1))?.weight ?? null;
+  // Ask how the most recent completed set felt (reps-based exercises only).
+  const lastDone = entry.sets.reduce((acc, s, i) => (s.done ? i : acc), -1);
+  const askAt = ex.unit === "reps" && lastDone >= 0 && !entry.sets[lastDone].feel ? lastDone : -1;
   const rest = target.restSec >= 60 ? `${Math.floor(target.restSec / 60)}:${String(target.restSec % 60).padStart(2, "0")}` : `${target.restSec}s`;
 
   return (
@@ -396,7 +405,7 @@ function EntryCard({
                 <li key={c}>{c}</li>
               ))}
             </ul>
-            <p className="text-xs text-muted">Avoid: {ex.mistakes.join("; ").toLowerCase()}</p>
+            {ex.mistakes.length > 0 && <p className="text-xs text-muted">Avoid: {ex.mistakes.join("; ").toLowerCase()}</p>}
           </div>
         )}
       </div>
@@ -416,8 +425,10 @@ function EntryCard({
             showWeight={!!wLabel}
             repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
             readOnly={readOnly}
+            askFeel={!readOnly && si === askAt}
             onEdit={(field) => onEdit(si, field)}
             onToggle={() => onToggle(si)}
+            onFeel={(f) => onFeel(si, f)}
           />
         ))}
         {ex.load === "barbell" && plateWeight != null && !readOnly && (
