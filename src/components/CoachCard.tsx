@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { coachSessions, reviewDue, weeksTraining } from "@/lib/coach";
+import { listHealthDays, recoverySummary } from "@/lib/health-store";
 import { applyChange, describeChange, planStore, weekKey, type Plan, type PlanChange } from "@/lib/plan";
 import type { Workout } from "@/lib/types";
 
@@ -39,10 +40,12 @@ export function CoachCard({ workouts, plan, onPlan }: { workouts: Workout[]; pla
     setBusy(true);
     setError(null);
     try {
+      const health = await listHealthDays(28).catch(() => []);
+      const recovery = health.length ? recoverySummary(health) : null;
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: plan.routines, rules: plan.rules, sessions: coachSessions(workouts), weeksTraining: weeksTraining(workouts) }),
+        body: JSON.stringify({ plan: plan.routines, rules: plan.rules, sessions: coachSessions(workouts), weeksTraining: weeksTraining(workouts), recovery }),
       });
       const data = await res.json().catch(() => ({ error: "Unexpected response" }));
       if (!res.ok) throw new Error(data.error ?? "Review failed");

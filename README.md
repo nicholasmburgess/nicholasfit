@@ -5,6 +5,7 @@ A personal fitness app: workout logging with exercise demos, and (coming next) b
 It's a web app you add to your iPhone home screen. Built with Next.js, Supabase and Vercel.
 
 - **Setting it up:** see [docs/SETUP.md](docs/SETUP.md)
+- **iPhone app** (Apple Health, live heart rate): see [mobile/README.md](mobile/README.md)
 - **Running locally:** `npm install`, then `npm run dev` and open http://localhost:3000. Without Supabase settings it runs in demo mode and saves data in the browser.
 
 ## What's in Phase 1

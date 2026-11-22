@@ -37,6 +37,7 @@ The lifter is a beginner rebuilding strength, aiming to lose fat while gaining m
 - Swap an exercise only for a clear reason in the log: it has stalled across several sessions even after a weight drop, it is consistently rated hard while reps fall short, or the lifter has outgrown a beginner version (for example goblet squat near the heaviest kettlebell setting with reps at the top of the range, so move to Barbell_Squat). Swaps should keep the same movement pattern.
 - Weekly volume of roughly 10 or more hard sets per muscle group supports muscle gain, with a dose-response. Add volume gradually: at most one extra set on one or two exercises per week, and only when the lifter completed at least two sessions last week with reps achieved and sets mostly rated good or easy.
 - If the lifter trained fewer than two times last week, prioritise consistency: make no volume increases.
+- Recovery data from Apple Health may be included (7-day averages versus the 3 weeks before). Short sleep impairs strength gains and recovery, so if sleep averages under 6.5 hours, or resting heart rate is up 5 bpm or more on the earlier weeks, make no volume increases this week and mention sleep or recovery in the summary. Treat HRV as supporting evidence only. If recovery data is missing, ignore it.
 - Main compound lifts use 5 to 10 reps; accessories 8 to 15; planks are held in seconds (keep 30 to 60).
 - Keep each routine within 45 minutes: no more than 6 exercises and about 16 working sets in total. Accessories such as curls, pushdowns, Pallof press or dead bugs can be added once sessions are being completed comfortably.
 - Equipment rule: the lifter has ONE adjustable dumbbell/kettlebell set, so each routine may contain at most TWO exercises marked "adjustable set". Barbell and cable exercises are unlimited.
@@ -56,10 +57,11 @@ const IDS = new Set([...EXERCISES, ...EXTRA_EXERCISES].map((e) => e.id));
 export async function POST(req: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "Coaching needs ANTHROPIC_API_KEY in Vercel." }, { status: 503 });
-  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown; recovery?: unknown } | null;
   const rules = Array.isArray(body?.rules) ? body.rules.filter((r): r is string => typeof r === "string").slice(0, 10).map((r) => r.slice(0, 300)) : [];
   if (!body?.plan || !Array.isArray(body.sessions)) return NextResponse.json({ error: "Missing data" }, { status: 400 });
-  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, recentSessions: body.sessions.slice(0, 30) });
+  const recovery = body.recovery && typeof body.recovery === "object" ? body.recovery : null;
+  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, recentSessions: body.sessions.slice(0, 30), recovery });
   if (text.length > 60_000) return NextResponse.json({ error: "Too much data" }, { status: 413 });
 
   try {
