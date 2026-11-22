@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Nicholasfit",
+    "slug": "nicholasfit",
+    "scheme": "nicholasfit",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0f4a30"
+    },
+    "ios": {
+      "bundleIdentifier": "com.nicholasmburgess.nicholasfit",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Nicholasfit uses the camera to photograph meals and scan barcodes.",
+        "NSPhotoLibraryUsageDescription": "Nicholasfit lets you pick a meal photo to estimate calories.",
+        "NSMicrophoneUsageDescription": "Nicholasfit does not record audio, but iOS asks when the camera opens.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "Nicholasfit reads your sleep, resting heart rate, heart rate variability, steps and rowing workouts so your weekly coaching can account for recovery.",
+          "NSHealthUpdateUsageDescription": "Nicholasfit saves your strength workouts and heart rate to Apple Health.",
+          "background": false
+        }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Nicholasfit connects to your heart rate strap to show your heart rate during workouts."
+        }
+      ]
+    ]
+  }
+}

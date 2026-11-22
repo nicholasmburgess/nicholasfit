@@ -16,6 +16,7 @@ import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
 import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
 import { DEFAULT_TARGET } from "@/lib/routines";
+import { postNative, useHeartRate } from "@/lib/native";
 import { store } from "@/lib/store";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 
@@ -81,6 +82,7 @@ export default function WorkoutPage() {
 
   // Keep the screen awake during an unfinished workout.
   const active = !!workout && !workout.finishedAt;
+  const hr = useHeartRate(active);
   useEffect(() => {
     if (!active || !("wakeLock" in navigator)) return;
     let lock: WakeLockSentinel | null = null;
@@ -178,6 +180,7 @@ export default function WorkoutPage() {
     setWorkout(done);
     setRest(null);
     await store.saveWorkout(done);
+    postNative({ type: "workoutFinished", id: done.id, name: done.name, startedAt: done.startedAt, finishedAt: done.finishedAt! });
     router.replace(`/workout/${w.id}?done=1`);
     window.scrollTo(0, 0);
   }
@@ -186,6 +189,7 @@ export default function WorkoutPage() {
     if (!confirm(w.finishedAt ? "Delete this workout from your history?" : "Discard this workout?")) return;
     dirty.current = false;
     await store.deleteWorkout(w.id);
+    if (!w.finishedAt) postNative({ type: "hrStop" });
     router.push("/");
   }
 
@@ -204,6 +208,7 @@ export default function WorkoutPage() {
             {formatDate(w.startedAt)}
             {w.finishedAt ? ` · ${formatDuration(w.startedAt, w.finishedAt)} · completed` : <Elapsed since={w.startedAt} />}
           </p>
+          {hr && <HeartRateChip hr={hr} />}
         </div>
         {!w.finishedAt ? (
           <Button onClick={finish} disabled={doneSets === 0}>
@@ -454,5 +459,27 @@ function EntryCard({
       </div>
       )}
     </Card>
+  );
+}
+
+function HeartRateChip({ hr }: { hr: NonNullable<ReturnType<typeof useHeartRate>> }) {
+  const text =
+    hr.status === "connected"
+      ? hr.bpm != null
+        ? `${hr.bpm} bpm`
+        : `${hr.device ?? "Strap"} connected`
+      : hr.status === "searching"
+        ? "Looking for heart rate strap…"
+        : hr.status === "bluetooth-off"
+          ? (hr.message ?? "Turn on Bluetooth")
+          : hr.status === "error"
+            ? "Heart rate strap unavailable"
+            : null;
+  if (!text) return null;
+  return (
+    <p className={`mt-1 inline-flex items-center gap-1.5 text-sm tabular-nums ${hr.bpm != null ? "font-semibold text-text" : "text-muted"}`}>
+      <span aria-hidden className={hr.bpm != null ? "text-danger" : ""}>♥</span>
+      {text}
+    </p>
   );
 }

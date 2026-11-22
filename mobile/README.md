@@ -1,0 +1,103 @@
+# Nicholasfit for iPhone
+
+The iPhone app shows the normal Nicholasfit site inside it, so every feature (and every future change to the site) is there without reinstalling. On top of that it adds what Safari can't do:
+
+- **Apple Health sync**: sleep, resting heart rate, heart rate variability (HRV), steps, and rows that Concept2 ErgData saves to Health. Shown on the Progress tab, and the weekly coach uses them to judge recovery.
+- **Live heart rate** from your Polar strap during a workout (under the workout title).
+- **Workouts saved to Apple Health** when you tap Finish, with the strap's heart rate.
+- The screen stays awake during a workout.
+
+You install it from your Mac with a free Apple account. A free install lasts **7 days**; after that the app won't open until you reinstall it from the Mac (2 minutes, your data is kept). Paying for the Apple Developer Program (US$99/year) makes an install last a year.
+
+---
+
+## One-time setup (about an hour, mostly downloads)
+
+### 1. Install Xcode
+1. Open the **App Store** on your Mac, search **Xcode**, click **Get**. It's large (around 10 GB), so let it download.
+2. Open Xcode once. Agree to the licence. If it asks which platforms to install, tick **iOS** and click **Download & Install**.
+3. In Xcode's menu bar click **Xcode → Settings… → Accounts**, click **+** (bottom left), choose **Apple Account**, and sign in with your normal Apple ID. You'll see a team called "*Your Name* (Personal Team)". Close the window.
+
+### 2. Install Node.js and CocoaPods
+1. Go to <https://nodejs.org>, download the **LTS** macOS installer and run it (click Continue through it).
+2. Open **Terminal** (press ⌘ Space, type *Terminal*, press Return).
+3. Install Homebrew (a tool installer for Mac). Paste this line, press Return, and enter your Mac password when asked (nothing shows while you type, that's normal):
+   ```
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+   When it finishes it prints "Next steps" with two or three lines starting `echo` or `eval`. Copy and run those lines too.
+4. Install CocoaPods (Xcode uses it to add the app's building blocks):
+   ```
+   brew install cocoapods
+   ```
+
+### 3. Download the app code
+In Terminal, paste these lines one at a time:
+```
+cd ~
+git clone https://github.com/nicholasmburgess/nicholasfit.git
+cd nicholasfit/mobile
+npm run setup
+```
+`npm run setup` takes a few minutes. If macOS asks to install "command line developer tools", click **Install**, wait, then run the last two lines again.
+
+### 4. Get your iPhone ready
+1. Plug your iPhone into the Mac with a cable. On the iPhone tap **Trust** and enter your passcode.
+2. On the iPhone open **Settings → Privacy & Security → Developer Mode**, turn it on, and let it restart. (If you don't see Developer Mode, do step 5 first, then come back.)
+
+### 5. Install the app
+1. In Terminal (still in the `mobile` folder) run:
+   ```
+   xed ios
+   ```
+   This opens the project in Xcode.
+2. In the left sidebar click the blue **Nicholasfit** icon at the top. In the middle, click the **Signing & Capabilities** tab.
+3. Tick **Automatically manage signing**, and set **Team** to your "(Personal Team)".
+   - If it says the bundle identifier isn't available, change **Bundle Identifier** to something unique, e.g. `com.yourname.nicholasfit2`.
+4. Make it a standalone build (so it works away from the Mac): menu **Product → Scheme → Edit Scheme…**, click **Run** on the left, set **Build Configuration** to **Release**, click **Close**.
+5. At the top of the Xcode window, click the device name next to "Nicholasfit" and choose **your iPhone**.
+6. Press the **▶ (Run)** button. The first build takes 5–10 minutes.
+7. The first time, the iPhone says "Untrusted Developer". On the iPhone go to **Settings → General → VPN & Device Management**, tap your Apple ID under *Developer App*, and tap **Trust**. Then open Nicholasfit from your home screen.
+
+### 6. First launch
+1. Sign in with your usual Nicholasfit email and password.
+2. Go to **Progress → Recovery · Apple Health → Connect Apple Health**. Apple's permission screen appears: tap **Turn On All** then **Allow**.
+3. Start a workout with your Polar strap on (wet the strap's contacts). Allow Bluetooth when asked. Your heart rate appears under the workout title. If the Polar app is open and connected to the strap, close it first.
+
+Optional: to reinstall over Wi-Fi instead of a cable, in Xcode open **Window → Devices and Simulators**, select your iPhone, and tick **Connect via network**.
+
+---
+
+## Every 7 days: reinstall (2 minutes)
+1. Plug in the iPhone (or be on the same Wi-Fi if you set that up).
+2. Open Xcode. It reopens the Nicholasfit project (if not: **File → Open Recent**).
+3. Check your iPhone is chosen at the top, then press **▶**.
+
+Your data lives on the server, and your sign-in is kept, so nothing is lost.
+
+## When the app itself is updated
+Most changes are to the website and appear in the app automatically. When I tell you the **iPhone app** changed, run this in Terminal, then repeat **step 5 (items 2–6)** above:
+```
+cd ~/nicholasfit/mobile
+git pull
+npm run setup
+```
+
+## Free vs paid Apple account
+| | Free | Paid (US$99/yr) |
+|---|---|---|
+| Apple Health, Bluetooth heart rate, PM5 | ✓ | ✓ |
+| How long an install lasts | 7 days | 1 year |
+| Install without the Mac (TestFlight) | ✗ | ✓ |
+| Push notifications sent from the server | ✗ | ✓ |
+| Sideloaded apps per phone | 3 | unlimited |
+
+---
+
+## For developers
+- Expo SDK 58, React Native, `react-native-webview` loading `https://nicholasfit.vercel.app`.
+- `src/health.ts` (`@kingstinct/react-native-healthkit`) and `src/heartRate.ts` (`react-native-ble-plx`, standard Heart Rate service 0x180D).
+- The web app talks to this shell through `src/lib/native.ts` in the site: page → native via `window.ReactNativeWebView.postMessage`, native → page via a `nicholasfit-native` CustomEvent. `window.NicholasfitNative` is set before the page loads.
+- `ios/` is generated by `expo prebuild` and not committed. Configure native settings in `app.json`.
+- Set `expo.ios.appleTeamId` in `app.json` to your team ID to skip the Signing step after each `npm run setup`.
+- Typecheck: `npm run typecheck`.

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/BottomNav";
 import { DemoBanner } from "@/components/DemoBanner";
+import { NativeBridge } from "@/components/NativeBridge";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
         </div>
         <BottomNav />
+        <NativeBridge />
       </body>
     </html>
   );

@@ -10,6 +10,7 @@ import { foodStore } from "@/lib/food-store";
 import { WidgetCard } from "@/components/WidgetCard";
 import { WithingsCard } from "@/components/WithingsCard";
 import { WaistCard } from "@/components/WaistCard";
+import { HealthCard } from "@/components/HealthCard";
 import { CheckinCard } from "@/components/CheckinCard";
 import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
 import type { WeightEntry } from "@/lib/types";
@@ -124,6 +125,7 @@ export default function ProgressPage() {
         </Card>
       )}
       <WaistCard />
+      <HealthCard />
       <WidgetCard />
     </main>
   );
