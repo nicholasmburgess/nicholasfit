@@ -1,32 +1,38 @@
 @import "tailwindcss";
 
 :root {
-  /* Dark: deep British racing green with cream type and brass accents. */
-  --bg: #0b1d15;
-  --card: #11281e;
-  --card-2: #173226;
-  --line: #2b4a3b;
-  --text: #f2ead7;
-  --muted: #a8b29f;
-  --accent: #c9a66b;
-  --accent-ink: #0b1d15;
-  --warn: #e0b66a;
-  --danger: #e07a6a;
+  /* Dark: near-black with racing-green surfaces and a brighter green for contrast mid-workout. */
+  --bg: #0a0f0c;
+  --card: #121a15;
+  --card-2: #1a261f;
+  --line: #223128;
+  --text: #eef2ec;
+  --muted: #8f9b93;
+  --accent: #3cc47f;
+  --accent-ink: #06140c;
+  --warn: #e8b85a;
+  --danger: #ff6b5e;
+  --shadow: none;
+  --hero: #0f3d2a;
+  --hero-ink: #eef2ec;
 }
 
-/* Light: cream paper with British racing green and brass. */
+/* Light: clean white with British racing green as the single accent. */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f3ecdc;
-    --card: #fbf7ee;
-    --card-2: #ece3cf;
-    --line: #d9ccb0;
-    --text: #1b2a21;
-    --muted: #6d6a58;
-    --accent: #0f4a30;
-    --accent-ink: #f5eedd;
+    --bg: #f4f6f5;
+    --card: #ffffff;
+    --card-2: #eef2f0;
+    --line: #e3e9e5;
+    --text: #0d1512;
+    --muted: #66706b;
+    --accent: #0b4d34;
+    --accent-ink: #ffffff;
     --warn: #8a5a12;
-    --danger: #a3352a;
+    --danger: #c0392b;
+    --hero: #0b4d34;
+    --hero-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(13, 21, 18, 0.04), 0 4px 14px rgba(13, 21, 18, 0.05);
   }
 }
 
@@ -41,6 +47,9 @@
   --color-accent-ink: var(--accent-ink);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
+  --shadow-card: var(--shadow);
+  --color-hero: var(--hero);
+  --color-hero-ink: var(--hero-ink);
 }
 
 html {
@@ -51,18 +60,26 @@ html {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-feature-settings: "cv11", "ss01";
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Classic serif for headings, like a British motoring badge. */
 h1,
 h2 {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.015em;
 }
 h1 {
-  font-weight: 600;
+  font-weight: 700;
+}
+h2 {
+  font-weight: 650;
+}
+
+/* Numbers line up in tables and timers. */
+.tabular-nums,
+input {
+  font-variant-numeric: tabular-nums;
 }
 
 input[type="number"]::-webkit-inner-spin-button,

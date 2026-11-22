@@ -23,8 +23,8 @@ type FromWeb =
   | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string };
 
 const COLORS = {
-  light: { bg: "#f3ecdc", text: "#0f4a30", muted: "#5b6b60" },
-  dark: { bg: "#0b1d15", text: "#f2ead7", muted: "#a9b5ab" },
+  light: { bg: "#f4f6f5", text: "#0b4d34", muted: "#66706b" },
+  dark: { bg: "#0a0f0c", text: "#eef2ec", muted: "#8f9b93" },
 };
 
 export default function App() {

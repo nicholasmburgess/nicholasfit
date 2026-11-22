@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "cover",
-      "backgroundColor": "#0f4a30"
+      "backgroundColor": "#0b4d34"
     },
     "ios": {
       "bundleIdentifier": "com.nicholasmburgess.nicholasfit",

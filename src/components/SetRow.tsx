@@ -11,6 +11,8 @@ const FEELS: { value: Feel; label: string }[] = [
 export function SetRow({
   index,
   set,
+  prev,
+  isNext,
   showWeight,
   repsPlaceholder,
   readOnly,
@@ -21,6 +23,10 @@ export function SetRow({
 }: {
   index: number;
   set: SetLog;
+  /** Same set last session, shown in the Previous column. */
+  prev?: SetLog;
+  /** The next set to do, outlined so it's easy to find mid-workout. */
+  isNext?: boolean;
   showWeight: boolean;
   repsPlaceholder: string;
   readOnly: boolean;
@@ -29,13 +35,19 @@ export function SetRow({
   onToggle: () => void;
   onFeel?: (f: Feel) => void;
 }) {
-  const field = `h-11 w-full rounded-lg border text-center text-base tabular-nums disabled:opacity-100 ${
-    set.done ? "border-accent/30 bg-accent/10" : "border-line bg-card-2"
+  const field = `h-12 w-full rounded-xl text-center text-xl font-semibold tabular-nums disabled:opacity-100 ${
+    set.done ? "bg-transparent" : "bg-card-2"
   }`;
+  const prevText = prev && prev.done && prev.reps != null ? (prev.weight != null ? `${prev.weight} × ${prev.reps}` : `${prev.reps}`) : "–";
   return (
     <div className="space-y-1.5">
-      <div className="grid grid-cols-[2rem_1fr_1fr_3rem] items-center gap-2">
-        <span className="text-center text-sm text-muted">{index + 1}</span>
+      <div
+        className={`-mx-1.5 grid grid-cols-[1.75rem_3.75rem_1fr_1fr_3.5rem] items-center gap-2 rounded-2xl px-1.5 py-1 ${
+          set.done ? "bg-accent/10" : isNext ? "ring-2 ring-inset ring-accent" : ""
+        }`}
+      >
+        <span className="text-center text-base font-semibold">{index + 1}</span>
+        <span className="truncate text-sm tabular-nums text-muted">{prevText}</span>
         {showWeight ? (
           <button aria-label={`Set ${index + 1} weight`} className={field} disabled={readOnly} onClick={() => onEdit("weight")}>
             {set.weight ?? <span className="text-muted">kg</span>}
@@ -50,16 +62,16 @@ export function SetRow({
           aria-label={set.done ? `Undo set ${index + 1}` : `Complete set ${index + 1}`}
           onClick={onToggle}
           disabled={readOnly}
-          className={`h-11 rounded-lg text-lg font-bold disabled:opacity-100 ${set.done ? "bg-accent text-accent-ink" : "border border-line bg-card-2 text-muted"}`}
+          className={`h-12 rounded-xl text-xl font-bold disabled:opacity-100 ${set.done ? "bg-accent text-accent-ink" : isNext ? "border-2 border-accent text-accent" : "border-2 border-line text-muted"}`}
         >
           ✓
         </button>
       </div>
       {askFeel && onFeel && (
-        <div className="ml-10 flex items-center gap-1.5" role="group" aria-label={`How did set ${index + 1} feel?`}>
+        <div className="flex items-center gap-2 pl-8" role="group" aria-label={`How did set ${index + 1} feel?`}>
           <span className="mr-1 text-xs text-muted">How was it?</span>
           {FEELS.map((f) => (
-            <button key={f.value} onClick={() => onFeel(f.value)} className="flex-1 rounded-full border border-line bg-card-2 py-1.5 text-xs active:bg-accent active:text-accent-ink">
+            <button key={f.value} onClick={() => onFeel(f.value)} className="flex-1 rounded-xl border border-line bg-card py-2.5 text-sm font-medium active:bg-accent active:text-accent-ink">
               {f.label}
             </button>
           ))}

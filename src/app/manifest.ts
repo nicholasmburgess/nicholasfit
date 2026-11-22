@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Personal training, body and nutrition tracker",
     start_url: "/",
     display: "standalone",
-    background_color: "#0f4a30",
-    theme_color: "#0f4a30",
+    background_color: "#0b4d34",
+    theme_color: "#0b4d34",
     icons: [
       { src: "/icon", sizes: "512x512", type: "image/png" },
       { src: "/apple-icon", sizes: "180x180", type: "image/png" },
