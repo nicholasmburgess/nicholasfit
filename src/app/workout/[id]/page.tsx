@@ -18,6 +18,7 @@ import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
 import { DEFAULT_TARGET } from "@/lib/routines";
 import { postNative, useHeartRate } from "@/lib/native";
 import { store } from "@/lib/store";
+import { SYNC_EVENT, pendingSync } from "@/lib/store/synced";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 
 export default function WorkoutPage() {
@@ -233,6 +234,7 @@ export default function WorkoutPage() {
       {justFinished && w.finishedAt && !editMode && <WorkoutSummary workout={w} history={history} />}
 
       {saveError && <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">Not saved: {saveError}</p>}
+      <SyncNote />
 
       {w.entries.map((e, ei) => (
         <EntryCard
@@ -482,4 +484,27 @@ function HeartRateChip({ hr }: { hr: NonNullable<ReturnType<typeof useHeartRate>
       {text}
     </p>
   );
+}
+
+/** Shown only while changes are waiting on the phone for signal. */
+function SyncNote() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    // Normal saves take a moment; only mention it if changes are still waiting after 3 s.
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const check = (n: number) => {
+      clearTimeout(t);
+      if (!n) return setShow(false);
+      t = setTimeout(() => setShow(pendingSync() > 0), 3000);
+    };
+    check(pendingSync());
+    const on = (e: Event) => check((e as CustomEvent<number>).detail);
+    window.addEventListener(SYNC_EVENT, on);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(SYNC_EVENT, on);
+    };
+  }, []);
+  if (!show) return null;
+  return <p className="-mt-2 text-xs text-muted">No signal? Your sets are saved on this phone and will sync automatically.</p>;
 }
