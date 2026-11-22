@@ -18,6 +18,7 @@ import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
 import { DEFAULT_TARGET } from "@/lib/routines";
 import { postNative, useHeartRate } from "@/lib/native";
 import { store } from "@/lib/store";
+import { SYNC_EVENT, pendingSync } from "@/lib/store/synced";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 
 export default function WorkoutPage() {
@@ -201,7 +202,7 @@ export default function WorkoutPage() {
 
   return (
     <main className="space-y-4">
-      <header className="flex items-start justify-between gap-3 pt-2">
+      <header className="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-3 border-b border-line bg-bg/95 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur">
         <div>
           <h1 className="text-2xl font-bold">{w.name}</h1>
           <p className="text-sm text-muted">
@@ -233,12 +234,14 @@ export default function WorkoutPage() {
       {justFinished && w.finishedAt && !editMode && <WorkoutSummary workout={w} history={history} />}
 
       {saveError && <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">Not saved: {saveError}</p>}
+      <SyncNote />
 
       {w.entries.map((e, ei) => (
         <EntryCard
           key={`${e.exerciseId}-${ei}`}
           entry={e}
           last={exerciseHistory(history, e.exerciseId)[0]?.sets}
+          current={ei === w.entries.findIndex((x) => x.sets.some((st) => !st.done))}
           readOnly={readOnly}
           onEdit={(si, field) => setEditing({ ei, si, field })}
           onToggle={(si) => toggleDone(ei, si)}
@@ -342,6 +345,7 @@ function Elapsed({ since }: { since: string }) {
 function EntryCard({
   entry,
   last,
+  current,
   readOnly,
   onEdit,
   onToggle,
@@ -353,6 +357,8 @@ function EntryCard({
 }: {
   entry: Entry;
   last?: SetLog[];
+  /** First exercise with sets left: its next set gets the outline. */
+  current?: boolean;
   readOnly: boolean;
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
@@ -379,7 +385,7 @@ function EntryCard({
       <div className="p-4 pb-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <Link href={`/exercises/${ex.id}`} className="font-[Iowan_Old_Style,Palatino,Georgia,serif] text-lg font-semibold">
+            <Link href={`/exercises/${ex.id}`} className="text-lg font-semibold tracking-tight">
               {ex.name}
             </Link>
             <p className="text-sm text-muted">
@@ -397,11 +403,6 @@ function EntryCard({
             Warm up first: {warmupSets(entry.sets[0].weight).map((w) => `${w.kg === 20 ? "bar" : `${w.kg} kg`} × ${w.reps}`).join(", ")}
           </p>
         )}
-        {last && !readOnly && (
-          <p className="mt-1 text-xs text-muted">
-            Last time: {last.map((s) => (s.weight ? `${s.weight}×${s.reps}` : `${s.reps}`)).join(", ")}
-          </p>
-        )}
         {showDemo && (
           <div className="mt-3 space-y-2">
             <ExerciseDemo images={ex.images} name={ex.name} />
@@ -415,10 +416,11 @@ function EntryCard({
         )}
       </div>
 
-      <div className="grid grid-cols-[2rem_1fr_1fr_3rem] items-center gap-2 px-4 pb-1 text-xs text-muted">
-        <span>Set</span>
-        <span>{wLabel || " "}</span>
-        <span>{unit}</span>
+      <div className="grid grid-cols-[1.75rem_3.75rem_1fr_1fr_3.5rem] items-center gap-2 px-4 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="text-center">Set</span>
+        <span>Previous</span>
+        <span className="text-center">{wLabel || " "}</span>
+        <span className="text-center">{unit}</span>
         <span />
       </div>
       <div className="space-y-1.5 px-4 pb-3">
@@ -427,6 +429,8 @@ function EntryCard({
             key={si}
             index={si}
             set={s}
+            prev={readOnly ? undefined : last?.[si]}
+            isNext={!readOnly && !!current && !s.done && entry.sets.findIndex((x) => !x.done) === si}
             showWeight={!!wLabel}
             repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
             readOnly={readOnly}
@@ -444,16 +448,16 @@ function EntryCard({
       </div>
       {!readOnly && (
       <div className="flex border-t border-line text-sm">
-        <button className="flex-1 py-2.5 text-accent" onClick={onAddSet}>
+        <button className="flex-1 py-3.5 text-accent" onClick={onAddSet}>
           + Set
         </button>
-        <button className="flex-1 py-2.5 text-muted disabled:opacity-40" onClick={onRemoveSet} disabled={entry.sets.length <= 1}>
+        <button className="flex-1 py-3.5 text-muted disabled:opacity-40" onClick={onRemoveSet} disabled={entry.sets.length <= 1}>
           − Set
         </button>
-        <button className="flex-1 py-2.5 text-muted" onClick={onSwap}>
+        <button className="flex-1 py-3.5 text-muted" onClick={onSwap}>
           Swap
         </button>
-        <button className="flex-1 py-2.5 text-muted" onClick={onRemove}>
+        <button className="flex-1 py-3.5 text-muted" onClick={onRemove}>
           Remove
         </button>
       </div>
@@ -482,4 +486,27 @@ function HeartRateChip({ hr }: { hr: NonNullable<ReturnType<typeof useHeartRate>
       {text}
     </p>
   );
+}
+
+/** Shown only while changes are waiting on the phone for signal. */
+function SyncNote() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    // Normal saves take a moment; only mention it if changes are still waiting after 3 s.
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const check = (n: number) => {
+      clearTimeout(t);
+      if (!n) return setShow(false);
+      t = setTimeout(() => setShow(pendingSync() > 0), 3000);
+    };
+    check(pendingSync());
+    const on = (e: Event) => check((e as CustomEvent<number>).detail);
+    window.addEventListener(SYNC_EVENT, on);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(SYNC_EVENT, on);
+    };
+  }, []);
+  if (!show) return null;
+  return <p className="-mt-2 text-xs text-muted">No signal? Your sets are saved on this phone and will sync automatically.</p>;
 }

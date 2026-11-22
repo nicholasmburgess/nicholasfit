@@ -59,24 +59,28 @@ export default function Home() {
           </Link>
         </Card>
       ) : (
-        <Card>
-          <p className="text-sm text-muted">Next session</p>
-          <h2 className="text-lg font-semibold">{next.name}</h2>
-          <p className="mb-3 text-sm text-muted">{next.summary} · about 45 min</p>
-          <Button className="w-full" onClick={() => start(nextKey)} disabled={!!starting}>
+        <div className="rounded-3xl bg-hero p-5 text-hero-ink shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wider opacity-75">Next session</p>
+          <h2 className="mt-1 text-2xl font-bold">{next.name}</h2>
+          <p className="mb-4 mt-1 text-sm opacity-80">{next.summary} · about 45 min</p>
+          <button
+            className="w-full rounded-xl bg-white py-3.5 text-base font-semibold text-[#0b4d34] active:opacity-80 disabled:opacity-60"
+            onClick={() => start(nextKey)}
+            disabled={!!starting}
+          >
             {starting === nextKey ? "Starting…" : `Start ${next.name}`}
-          </Button>
+          </button>
           <div className="mt-3 flex gap-2">
             {routines.filter((r) => r.key !== nextKey).map((r) => (
-              <Button key={r.key} variant="secondary" className="flex-1 !px-2" onClick={() => start(r.key)} disabled={!!starting}>
+              <button key={r.key} className="flex-1 rounded-xl bg-white/15 px-2 py-3 text-sm font-medium active:opacity-80 disabled:opacity-60" onClick={() => start(r.key)} disabled={!!starting}>
                 {r.name}
-              </Button>
+              </button>
             ))}
-            <Button variant="secondary" className="flex-1 !px-2" onClick={() => start(null)} disabled={!!starting}>
+            <button className="flex-1 rounded-xl bg-white/15 px-2 py-3 text-sm font-medium active:opacity-80 disabled:opacity-60" onClick={() => start(null)} disabled={!!starting}>
               Empty
-            </Button>
+            </button>
           </div>
-        </Card>
+        </div>
       )}
 
       {!active && <CoachCard workouts={workouts} plan={plan} onPlan={setPlan} />}
