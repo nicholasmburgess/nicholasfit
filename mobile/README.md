@@ -10,6 +10,8 @@ The iPhone app shows the normal Nicholasfit site inside it, so every feature (an
 - **Live heart rate** from your Polar strap during a workout (under the workout title).
 - **Workouts saved to Apple Health** when you tap Finish, with the strap's heart rate.
 - The screen stays awake during a workout.
+- **Widgets**: a *Nicholasfit* widget for the Home Screen (small or medium) and the Lock Screen (circle, rectangle or one line) showing your next workout, calories left, protein, weight trend and sessions this week. Tap it to open the app.
+- **Rest timer on the Lock Screen and Dynamic Island** during a workout, counting down even with the phone asleep, with what's up next.
 
 You install it from your Mac with a free Apple account. A free install lasts **7 days**; after that the app won't open until you reinstall it from the Mac (2 minutes, your data is kept). Paying for the Apple Developer Program (US$99/year) makes an install last a year.
 
@@ -58,16 +60,25 @@ npm run setup
 2. In the left sidebar click the blue **Nicholasfit** icon at the top. In the middle, click the **Signing & Capabilities** tab.
 3. Tick **Automatically manage signing**, and set **Team** to your "(Personal Team)".
    - If it says the bundle identifier isn't available, change **Bundle Identifier** to something unique, e.g. `com.yourname.nicholasfit2`.
-4. Make it a standalone build (so it works away from the Mac): menu **Product → Scheme → Edit Scheme…**, click **Run** on the left, set **Build Configuration** to **Release**, click **Close**.
-5. At the top of the Xcode window, click the device name next to "Nicholasfit" and choose **your iPhone**.
-6. Press the **▶ (Run)** button. The first build takes 5–10 minutes.
-7. The first time, the iPhone says "Untrusted Developer". On the iPhone go to **Settings → General → VPN & Device Management**, tap your Apple ID under *Developer App*, and tap **Trust**. Then open Nicholasfit from your home screen.
+4. Do the same for the widget: just left of the tabs, under **TARGETS**, click **ExpoWidgetsTarget**, then tick **Automatically manage signing** and set **Team** to your "(Personal Team)". Click **Nicholasfit** under TARGETS again afterwards.
+   - Xcode sets up the shared "App Group" the app and widget use by itself. If it shows a red error about the App Group, click **Try Again**.
+5. Make it a standalone build (so it works away from the Mac): menu **Product → Scheme → Edit Scheme…**, click **Run** on the left, set **Build Configuration** to **Release**, click **Close**.
+6. At the top of the Xcode window, click the device name next to "Nicholasfit" and choose **your iPhone**.
+7. Press the **▶ (Run)** button. The first build takes 5–10 minutes.
+8. The first time, the iPhone says "Untrusted Developer". On the iPhone go to **Settings → General → VPN & Device Management**, tap your Apple ID under *Developer App*, and tap **Trust**. Then open Nicholasfit from your home screen.
 
 ### 6. First launch
 1. Sign in with your usual Nicholasfit email and password.
 2. Go to **Progress → Recovery · Apple Health → Connect Apple Health**. Apple's permission screen appears: tap **Turn On All** then **Allow**.
 3. Allow notifications when the workout screen asks (that's the rest-timer alert).
 4. Start a workout with your Polar strap on (wet the strap's contacts). Allow Bluetooth when asked. Your heart rate appears under the workout title. If the Polar app is open and connected to the strap, close it first.
+
+### 7. Add the widgets
+- **Home Screen**: touch and hold an empty spot until the icons wiggle, tap **Edit** (top left) → **Add Widget**, search **Nicholasfit**, swipe to the size you want, tap **Add Widget**, then **Done**.
+- **Lock Screen**: touch and hold the Lock Screen, tap **Customize** → **Lock Screen**, tap the row of widgets under the clock, choose **Nicholasfit** and tap the circle or rectangle. Tap **Done**.
+- The rest timer appears on its own when you rest during a workout. If it doesn't, check **Settings → Nicholasfit → Live Activities** is on.
+
+The widget updates whenever you open or leave the app (for example right after logging a meal), and calories reset at midnight by themselves. A Withings weigh-in shows up the next time you open the app. Once you're happy with it you can remove the old Scriptable widget.
 
 Optional: to reinstall over Wi-Fi instead of a cable, in Xcode open **Window → Devices and Simulators**, select your iPhone, and tick **Connect via network**.
 
@@ -81,7 +92,7 @@ Optional: to reinstall over Wi-Fi instead of a cable, in Xcode open **Window →
 Your data lives on the server, and your sign-in is kept, so nothing is lost.
 
 ## When the app itself is updated
-Most changes are to the website and appear in the app automatically. When I tell you the **iPhone app** changed, run this in Terminal, then repeat **step 5 (items 2–6)** above:
+Most changes are to the website and appear in the app automatically. When I tell you the **iPhone app** changed, run this in Terminal, then repeat **step 5 (items 2–7)** above:
 ```
 cd ~/nicholasfit/mobile
 git pull
@@ -95,7 +106,8 @@ npm run setup
 | How long an install lasts | 7 days | 1 year |
 | Install without the Mac (TestFlight) | ✗ | ✓ |
 | Push notifications sent from the server | ✗ | ✓ |
-| Sideloaded apps per phone | 3 | unlimited |
+| Home Screen and Lock Screen widgets, Lock Screen rest timer | ✓ | ✓ |
+| Sideloaded apps per phone | 3 (the widget may count as one) | unlimited |
 
 ---
 
@@ -106,5 +118,6 @@ npm run setup
 - `src/WorkoutScreen.tsx` is the native workout screen; `src/store.ts` keeps workouts in AsyncStorage with an outbox that upserts to Supabase REST using the session the site hands over. Workout logic (`progression`, `adjustable`, `plan`, `new-workout`, `exercises`) is shared from the site's `src/lib` via the `@/` alias in `metro.config.js` and `tsconfig.json`.
 - Bridge v2: site → native `session`, `snapshot`, `startWorkout`, `openWorkout`; native → site `workoutClosed`. Whoever holds a workout syncs it; hand-overs release the other side's outbox first.
 - `ios/` is generated by `expo prebuild` and not committed. Configure native settings in `app.json`.
+- Widgets and the rest-timer Live Activity use `expo-widgets` (Expo UI SwiftUI components). Layouts are in `widgets/` and run in the widget extension, so each layout function must be self-contained (no outer variables or imports beyond `@expo/ui`). `src/widgetData.ts` fills the Today widget (Supabase REST with the handed-over session, plus the local plan/history) on launch, foreground, background, snapshot and finish; `src/restActivity.ts` mirrors the workout screen's rest timer. No push: the timer counts down natively via `Text timerInterval`, and the activity goes stale at the end time.
 - Set `expo.ios.appleTeamId` in `app.json` to your team ID to skip the Signing step after each `npm run setup`.
 - Typecheck: `npm run typecheck`.

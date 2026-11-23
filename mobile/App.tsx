@@ -12,6 +12,8 @@ import { authorize, healthAvailable, readHealth, saveStrengthWorkout } from "./s
 import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
 import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
 import { WorkoutScreen } from "./src/WorkoutScreen";
+import { endAllRests } from "./src/restActivity";
+import { refreshWidget } from "./src/widgetData";
 import { buildWorkout } from "@/lib/new-workout";
 import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
 import { nextRoutineKey } from "@/lib/progression";
@@ -151,6 +153,12 @@ function Shell() {
     activeWorkout().then((w) => w && openWorkout(w));
   }, [openWorkout]);
 
+  // A rest timer left on the Lock Screen by a closed app is cleared; the widget gets fresh numbers.
+  useEffect(() => {
+    endAllRests();
+    refreshWidget();
+  }, []);
+
   const onMessage = useCallback(
     async (e: WebViewMessageEvent) => {
       let msg: FromWeb;
@@ -165,10 +173,12 @@ function Shell() {
           send({ type: "native", version: BRIDGE_VERSION, health: healthAvailable(), bluetooth: true });
           break;
         case "session":
-          saveSession(msg.session);
+          await saveSession(msg.session);
+          refreshWidget();
           break;
         case "snapshot":
-          saveSnapshot({ ...msg.snapshot, savedAt: new Date().toISOString() });
+          await saveSnapshot({ ...msg.snapshot, savedAt: new Date().toISOString() });
+          refreshWidget();
           break;
         case "startWorkout":
           if (msg.snapshot) await saveSnapshot({ ...msg.snapshot, savedAt: new Date().toISOString() });
@@ -203,6 +213,8 @@ function Shell() {
   useEffect(() => {
     const sub = AppState.addEventListener("change", (s) => {
       if (s === "active") send({ type: "resumed" });
+      // Leaving the app (often right after logging a meal) or coming back updates the widget.
+      if (s === "active" || s === "background") refreshWidget();
     });
     return () => sub.remove();
   }, [send]);
@@ -219,6 +231,7 @@ function Shell() {
         onFinish={async (w) => {
           setOpen(null);
           saveToHealth({ id: w.id, name: w.name, startedAt: w.startedAt, finishedAt: w.finishedAt! });
+          refreshWidget();
           // With the website open it takes over (summary, coach); otherwise the phone syncs it later.
           if (webReady.current && !failed) await handBack(w);
           else Alert.alert("Workout saved", "It's on this phone and will sync when you have signal.");
