@@ -81,6 +81,14 @@ npm run setup
 
 The widget updates whenever you open or leave the app (for example right after logging a meal), and calories reset at midnight by themselves. A Withings weigh-in shows up the next time you open the app. Once you're happy with it you can remove the old Scriptable widget.
 
+### 8. Exercise videos (optional, 5 minutes)
+In a workout, tap an exercise name or **▶ How to** to see how it's done. With no signal it shows a photo demo saved in the app. To also get short video clips when you have signal:
+1. Go to [the ExerciseDB page on RapidAPI](https://rapidapi.com/ascendapi/api/edb-with-videos-and-images-by-ascendapi), sign up (free), click **Pricing** and subscribe to **Basic** ($0).
+2. Click **Apps** at the top, then your default app → **Authorization**, and copy the key.
+3. In [Vercel](https://vercel.com) open **nicholasfit → Settings → Environment Variables**, add `EXERCISEDB_RAPIDAPI_KEY` with that key, and save. Then go to **Deployments**, open the menu (⋯) on the top one and choose **Redeploy**.
+
+The free plan covers about 200 exercises with a watermark. Clips stream only and are never saved on the phone, because ExerciseDB's terms don't allow it. When there's no clip, you get the photo demo.
+
 Optional: to reinstall over Wi-Fi instead of a cable, in Xcode open **Window → Devices and Simulators**, select your iPhone, and tick **Connect via network**.
 
 ---

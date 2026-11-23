@@ -1,11 +1,12 @@
-// Lets the app import the website's workout logic from ../src (shared code, one source of truth).
+// Lets the app import the website's workout logic from ../src (shared code, one source of truth)
+// and bundle its exercise demo photos from ../public/demos.
 const path = require("path");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const root = path.resolve(__dirname, "..");
 const config = getDefaultConfig(__dirname);
 
-config.watchFolders = [path.join(root, "src")];
+config.watchFolders = [path.join(root, "src"), path.join(root, "public", "demos")];
 config.resolver.nodeModulesPaths = [path.join(__dirname, "node_modules")];
 const resolve = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, name, platform) => {

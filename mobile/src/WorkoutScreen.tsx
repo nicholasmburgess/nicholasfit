@@ -11,6 +11,8 @@ import { applyFeel, exerciseHistory } from "@/lib/progression";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
+import { DemoSheet } from "./DemoSheet";
+import { saveDemosForOffline } from "./demos";
 import type { HrUpdate } from "./heartRate";
 import { endRest as endLockScreenRest, showRest } from "./restActivity";
 import { onSyncChange, pendingCount, saveWorkout } from "./store";
@@ -66,12 +68,14 @@ export function WorkoutScreen({
   const [rest, setRest] = useState<Rest | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [pending, setPending] = useState(0);
+  const [demo, setDemo] = useState<string | null>(null);
   const latest = useRef(w);
   const notif = useRef<string | null>(null);
 
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => {});
     pendingCount().then(setPending);
+    saveDemosForOffline(initial.entries.map((e) => e.exerciseId));
     const off = onSyncChange(setPending);
     return () => {
       off();
@@ -266,6 +270,10 @@ export function WorkoutScreen({
               updateEntry(ei, (x) => ({ ...x, sets: x.sets.slice(0, -1) }));
             }}
             onSwap={() => onOpenWeb(latest.current)}
+            onDemo={() => {
+              tap();
+              setDemo(e.exerciseId);
+            }}
           />
         ))}
 
@@ -296,6 +304,8 @@ export function WorkoutScreen({
           onDone={endRest}
         />
       )}
+
+      {demo && <DemoSheet c={c} exerciseId={demo} onClose={() => setDemo(null)} />}
 
       {editing && <SetSheet key={`${editing.ei}-${editing.si}-${editing.field}`} c={c} workout={w} editing={editing} onClose={() => setEditing(null)} onDone={(v) => {
         if (editing.thenComplete) toggleDone(editing.ei, editing.si, v);
@@ -374,6 +384,7 @@ function EntryCard({
   onAddSet,
   onRemoveSet,
   onSwap,
+  onDemo,
 }: {
   c: Theme;
   entry: Entry;
@@ -389,8 +400,8 @@ function EntryCard({
   onAddSet: () => void;
   onRemoveSet: () => void;
   onSwap: () => void;
+  onDemo: () => void;
 }) {
-  const [howTo, setHowTo] = useState(false);
   const ex = getExercise(entry.exerciseId);
   if (!ex) return null;
   const { target } = entry;
@@ -407,15 +418,15 @@ function EntryCard({
       <View style={{ padding: 16, paddingBottom: 8 }}>
         {superset && <Text style={{ color: c.accent, fontSize: 12, fontWeight: "800", letterSpacing: 0.6, marginBottom: 4 }}>{superset.toUpperCase()}</Text>}
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-          <View style={{ flex: 1 }}>
+          <Pressable onPress={onDemo} style={{ flex: 1 }}>
             <Text style={{ color: c.text, fontSize: 19, fontWeight: "700" }}>{ex.name}</Text>
             <Text style={[s.small, { color: c.muted, marginTop: 2 }]}>
               {target.sets} × {target.repMin}–{target.repMax} {unit}
               {target.restSec > 0 ? ` · rest ${restText}` : ""}
             </Text>
-          </View>
-          <Pressable onPress={() => setHowTo((h) => !h)} style={[s.pill, { borderColor: c.line }]} hitSlop={8}>
-            <Text style={{ color: c.muted, fontSize: 13 }}>{howTo ? "Hide" : "How to"}</Text>
+          </Pressable>
+          <Pressable onPress={onDemo} style={[s.pill, { borderColor: c.line }]} hitSlop={8} accessibilityLabel={`How to do ${ex.name}`}>
+            <Text style={{ color: c.accent, fontSize: 13, fontWeight: "600" }}>▶ How to</Text>
           </Pressable>
         </View>
         {!!entry.hint && <Text style={{ color: c.accent, fontSize: 15, marginTop: 8 }}>{entry.hint}</Text>}
@@ -426,16 +437,6 @@ function EntryCard({
           <Text style={[s.small, { color: c.muted, marginTop: 4 }]}>
             Warm up first: {warm.map((x) => `${x.kg === 20 ? "bar" : `${x.kg} kg`} × ${x.reps}`).join(", ")}
           </Text>
-        )}
-        {howTo && (
-          <View style={{ marginTop: 8, gap: 4 }}>
-            {ex.cues.map((cue) => (
-              <Text key={cue} style={{ color: c.text, fontSize: 15 }}>
-                • {cue}
-              </Text>
-            ))}
-            {ex.mistakes.length > 0 && <Text style={[s.small, { color: c.muted }]}>Avoid: {ex.mistakes.join("; ").toLowerCase()}</Text>}
-          </View>
         )}
       </View>
 
