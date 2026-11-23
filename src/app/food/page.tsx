@@ -7,7 +7,8 @@ import { Card } from "@/components/Card";
 import { MealLogger, recentMeals } from "@/components/MealLogger";
 import { foodError, foodStore } from "@/lib/food-store";
 import { SOURCES, currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
-import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
+import type { Checkin } from "@/lib/checkin";
+import { loadCheckin } from "@/lib/checkin-load";
 import { newId } from "@/lib/store";
 import type { Meal, Profile, WeightEntry } from "@/lib/types";
 
@@ -45,16 +46,14 @@ export default function FoodPage() {
   const load = useCallback(async () => {
     const { start, end } = dayRange(offset);
     try {
-      const cr = checkinRange();
       const since = new Date(Date.now() - 30 * 86400e3).toISOString();
-      const [m, p, w, past, lately] = await Promise.all([
+      const [m, p, w, lately] = await Promise.all([
         foodStore.listMeals(start.toISOString(), end.toISOString()),
         foodStore.getProfile(),
         foodStore.listWeights(),
-        foodStore.listMeals(cr.start.toISOString(), cr.end.toISOString()),
         foodStore.listMeals(since, new Date(Date.now() + 86400e3).toISOString()),
       ]);
-      setCheckin(p ? weeklyCheckin(p, w, past) : null);
+      setCheckin(p ? await loadCheckin(p, w) : null);
       setRecent(recentMeals(lately));
       setMeals(m);
       setProfile(p);
@@ -160,8 +159,9 @@ export default function FoodPage() {
               )}
               <p>
                 Calories: resting energy from the Mifflin-St Jeor equation (the most accurate in a systematic review), times 1.45 for a desk job plus three strength
-                sessions a week. That gives maintenance of about {targets.tdee.toLocaleString("en-AU")} kcal. The target is 20% below that (at most 500 kcal), which
-                works out to roughly 0.5 kg of fat loss a week. That rate best protects muscle while you lose fat.
+                sessions a week. That gives maintenance of about {targets.tdee.toLocaleString("en-AU")} kcal. The target is 15% below that (at most 300 kcal), which
+                works out to roughly 0.25 kg of fat loss a week. A meta-analysis found deficits of about 500 kcal a day stopped muscle gain from training, so a
+                smaller one lets you lose fat and build muscle at the same time.
               </p>
               <p>
                 Protein: 2 g per kg. Muscle gain plateaus at about 1.6 g/kg on average, and needs are higher while eating below maintenance. Above a healthy-weight

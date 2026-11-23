@@ -13,7 +13,8 @@ import { WaistCard } from "@/components/WaistCard";
 import { HealthCard } from "@/components/HealthCard";
 import { MuscleSetsCard } from "@/components/MuscleSetsCard";
 import { CheckinCard } from "@/components/CheckinCard";
-import { checkinRange, weeklyCheckin, type Checkin } from "@/lib/checkin";
+import type { Checkin } from "@/lib/checkin";
+import { loadCheckin } from "@/lib/checkin-load";
 import type { WeightEntry } from "@/lib/types";
 
 export default function ProgressPage() {
@@ -22,10 +23,9 @@ export default function ProgressPage() {
   const [checkin, setCheckin] = useState<Checkin | null>(null);
   const loadWeights = async () => {
     try {
-      const { start, end } = checkinRange();
-      const [w, profile, meals] = await Promise.all([foodStore.listWeights(), foodStore.getProfile(), foodStore.listMeals(start.toISOString(), end.toISOString())]);
+      const [w, profile] = await Promise.all([foodStore.listWeights(), foodStore.getProfile()]);
       setWeights(w);
-      setCheckin(profile ? weeklyCheckin(profile, w, meals) : null);
+      setCheckin(profile ? await loadCheckin(profile, w) : null);
     } catch {
       setWeights([]);
     }

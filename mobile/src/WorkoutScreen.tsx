@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { describePlates, warmupSets } from "@/lib/plates";
+import { FEELS } from "@/lib/feel";
 import { applyFeel, exerciseHistory } from "@/lib/progression";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
@@ -38,11 +39,6 @@ Notifications.setNotificationHandler({
 type Rest = { endsAt: number; total: number; ei: number; si: number };
 type Editing = { ei: number; si: number; field: "weight" | "reps"; thenComplete?: boolean };
 
-const FEELS: { value: Feel; label: string }[] = [
-  { value: "easy", label: "Easy" },
-  { value: "good", label: "Good" },
-  { value: "hard", label: "Hard" },
-];
 
 const tap = () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
@@ -489,10 +485,15 @@ function EntryCard({
               </View>
               {si === askAt && (
                 <View style={[s.row, { paddingLeft: 36, gap: 8 }]}>
-                  <Text style={[s.small, { color: c.muted }]}>How was it?</Text>
+                  <Text style={[s.small, { color: c.muted }]}>Reps left?</Text>
                   {FEELS.map((f) => (
                     <Pressable key={f.value} onPress={() => onFeel(si, f.value)} style={({ pressed }) => [s.feel, { borderColor: c.line, backgroundColor: pressed ? c.accent : c.card }]}>
-                      {({ pressed }) => <Text style={{ fontSize: 15, fontWeight: "600", color: pressed ? c.accentInk : c.text }}>{f.label}</Text>}
+                      {({ pressed }) => (
+                        <View style={{ alignItems: "center" }}>
+                          <Text style={{ fontSize: 15, fontWeight: "600", color: pressed ? c.accentInk : c.text }}>{f.label}</Text>
+                          <Text style={{ fontSize: 11, color: pressed ? c.accentInk : c.muted }}>{f.reps}</Text>
+                        </View>
+                      )}
                     </Pressable>
                   ))}
                 </View>
@@ -599,11 +600,16 @@ function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; re
           <View style={{ gap: 16 }}>
             {askFeel && (
               <View style={{ gap: 8 }}>
-                <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 15 }}>How was {ex?.name ?? "that set"}, set {rest.si + 1}?</Text>
+                <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 15 }}>Reps left on {ex?.name ?? "that set"}, set {rest.si + 1}?</Text>
                 <View style={[s.row, { gap: 10 }]}>
                   {FEELS.map((f) => (
                     <Pressable key={f.value} onPress={() => onFeel(f.value)} style={({ pressed }) => [s.heroBtn, { flex: 1, backgroundColor: pressed ? "#fff" : "rgba(255,255,255,0.15)" }]}>
-                      {({ pressed }) => <Text style={[s.heroBtnText, pressed && { color: c.hero }]}>{f.label}</Text>}
+                      {({ pressed }) => (
+                        <View style={{ alignItems: "center" }}>
+                          <Text style={[s.heroBtnText, pressed && { color: c.hero }]}>{f.label}</Text>
+                          <Text style={{ fontSize: 12, color: pressed ? c.hero : "rgba(255,255,255,0.7)" }}>{f.reps}</Text>
+                        </View>
+                      )}
                     </Pressable>
                   ))}
                 </View>
