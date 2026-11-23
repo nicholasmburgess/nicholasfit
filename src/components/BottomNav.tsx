@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ICONS: Record<string, React.ReactNode> = {
-  Today: <path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" />,
+  Today: <path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5H15V15a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5.5H5.5A1.5 1.5 0 0 1 4 19z" />,
   Progress: (
     <>
       <rect x="4" y="13" width="4" height="7" rx="1.5" />
@@ -13,7 +13,15 @@ const ICONS: Record<string, React.ReactNode> = {
     </>
   ),
   Food: <path d="M12 8c-2-1.6-6.5-1.4-7 3.5-.4 4 2.4 9 5 9 .8 0 1.3-.4 2-.4s1.2.4 2 .4c2.6 0 5.4-5 5-9-.5-4.9-5-5.1-7-3.5zM12 8V5.5M12 5.5c0-1.6 1.2-2.5 3-2.5 0 1.6-1.2 2.5-3 2.5z" />,
-  Workout: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
+  Workout: (
+    <>
+      <rect x="3" y="9" width="3" height="6" rx="1.2" />
+      <rect x="6" y="6" width="3" height="12" rx="1.2" />
+      <rect x="15" y="6" width="3" height="12" rx="1.2" />
+      <rect x="18" y="9" width="3" height="6" rx="1.2" />
+      <path d="M9 12h6" />
+    </>
+  ),
   Row: (
     <path d="M3 7c1.5 0 2-1.5 3.5-1.5S8.5 7 10 7s2-1.5 3.5-1.5S15.5 7 17 7s2-1.5 3.5-1.5M3 12.5c1.5 0 2-1.5 3.5-1.5s2 1.5 3.5 1.5 2-1.5 3.5-1.5 2 1.5 3.5 1.5 2-1.5 3.5-1.5M3 18c1.5 0 2-1.5 3.5-1.5S8.5 18 10 18s2-1.5 3.5-1.5S15.5 18 17 18s2-1.5 3.5-1.5" />
   ),
