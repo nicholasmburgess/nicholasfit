@@ -10,20 +10,24 @@ import { createWidget, type WidgetEnvironment } from "expo-widgets";
  * the function (no outside constants or helpers). The app sends fresh numbers with
  * TodayWidget.updateTimeline() whenever it opens or closes (see src/widgetData.ts).
  */
+/**
+ * Props are stored in iOS settings, which can't hold null: leave a value out instead
+ * (optional fields below), never set it to null.
+ */
 export type TodayProps = {
   /** Next routine to do, e.g. "Workout A". */
-  workout: string | null;
+  workout?: string;
   /** A workout was finished today. */
   trainedToday: boolean;
   sessions: number;
   sessionGoal: number;
   kcal: number;
-  kcalTarget: number | null;
+  kcalTarget?: number;
   protein: number;
-  proteinTarget: number | null;
-  weight: number | null;
+  proteinTarget?: number;
+  weight?: number;
   /** Change over the last 7 days, kg (negative is down). */
-  weightChange: number | null;
+  weightChange?: number;
   /** False until the app has sent real numbers. */
   ready: boolean;
 };
@@ -144,15 +148,10 @@ const Today = (p: TodayProps, env: WidgetEnvironment) => {
 };
 
 export default createWidget<TodayProps>("Today", Today, {
-  workout: null,
   trainedToday: false,
   sessions: 0,
   sessionGoal: 3,
   kcal: 0,
-  kcalTarget: null,
   protein: 0,
-  proteinTarget: null,
-  weight: null,
-  weightChange: null,
   ready: false,
 });
