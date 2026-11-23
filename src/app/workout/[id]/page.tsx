@@ -438,9 +438,7 @@ function EntryCard({
         {superset && <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-accent">{superset}</p>}
         <div className="flex items-start justify-between gap-2">
           <div>
-            <Link href={`/exercises/${ex.id}`} className="text-lg font-semibold tracking-tight">
-              {ex.name}
-            </Link>
+            <p className="text-lg font-semibold tracking-tight">{ex.name}</p>
             <p className="text-sm text-muted">
               {target.sets} × {target.repMin}–{target.repMax} {unit}
               {target.restSec > 0 && ` · rest ${rest}`}

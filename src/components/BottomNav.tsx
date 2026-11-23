@@ -13,7 +13,6 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M12 7.5V12l3 2" />
     </>
   ),
-  Exercises: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
   Stretch: (
     <>
       <circle cx="15" cy="4.5" r="2" />
@@ -24,10 +23,9 @@ const ICONS: Record<string, React.ReactNode> = {
 
 const TABS = [
   { href: "/", label: "Today", match: (p: string) => p === "/" || p.startsWith("/workout") },
-  { href: "/progress", label: "Progress", match: (p: string) => p.startsWith("/progress") },
+  { href: "/progress", label: "Progress", match: (p: string) => p.startsWith("/progress") || p.startsWith("/exercises") },
   { href: "/food", label: "Food", match: (p: string) => p.startsWith("/food") },
   { href: "/history", label: "History", match: (p: string) => p.startsWith("/history") },
-  { href: "/exercises", label: "Exercises", match: (p: string) => p.startsWith("/exercises") },
   { href: "/flexibility", label: "Stretch", match: (p: string) => p.startsWith("/flexibility") },
 ];
 

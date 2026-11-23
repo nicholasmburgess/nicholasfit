@@ -15,8 +15,8 @@ export default async function ExercisePage({ params }: { params: Promise<{ id: s
 
   return (
     <main className="space-y-4 md:mx-auto md:max-w-2xl">
-      <Link href="/exercises" className="inline-block pt-2 text-sm text-accent">
-        ‹ Exercises
+      <Link href="/progress" className="inline-block pt-2 text-sm text-accent">
+        ‹ Progress
       </Link>
       <header>
         <h1 className="text-2xl font-bold">{ex.name}</h1>
