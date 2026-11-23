@@ -23,6 +23,7 @@
       }
     },
     "plugins": [
+      "./plugins/withNoScriptSandbox",
       [
         "@kingstinct/react-native-healthkit",
         {
