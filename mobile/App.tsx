@@ -19,6 +19,7 @@ import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
 import { nextRoutineKey } from "@/lib/progression";
 import { getExercise } from "@/lib/exercises";
 import { workoutRows } from "@/lib/row";
+import { zonesMax } from "@/lib/row-sessions";
 import type { RowPiece, Workout } from "@/lib/types";
 
 /** The web app this shell shows. Everything except Health and Bluetooth lives there. */
@@ -54,7 +55,7 @@ export default function App() {
   );
 }
 
-type Open = { workout: Workout; history: Workout[]; birthYear: number | null };
+type Open = { workout: Workout; history: Workout[]; maxHr: number | null };
 
 function Shell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -125,7 +126,7 @@ function Shell() {
   const openWorkout = useCallback(
     async (w: Workout) => {
       const snap = await getSnapshot();
-      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id), birthYear: snap?.birthYear ?? null });
+      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id), maxHr: zonesMax(snap?.birthYear ?? null, snap?.plan.rowCoaching) });
       startHr();
     },
     [startHr],
@@ -258,7 +259,7 @@ function Shell() {
         history={open.history}
         hr={hrState}
         hrSamples={() => hr.current?.samples ?? []}
-        birthYear={open.birthYear}
+        maxHr={open.maxHr}
         onFinish={async (w) => {
           setOpen(null);
           // Rowing-only sessions go to Health as rowing; a row inside a strength day stays part of it.

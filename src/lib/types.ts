@@ -34,6 +34,10 @@ export type RowPiece = {
   avgHr: number | null;
   maxHr: number | null;
   source: "pm5";
+  /** Guided rows: the session and how each hard rep went. */
+  session?: import("./row-sessions").RowSessionKey;
+  reps?: import("./row-sessions").RepStat[];
+  targetSplitS?: number | null;
 };
 
 export type Entry = {
@@ -50,6 +54,8 @@ export type Entry = {
   group?: string;
   /** Your own note for this exercise (e.g. "seat on notch 4"). Carried into future sessions. */
   note?: string;
+  /** A guided row (tempo or intervals): which session and the target split for the hard parts. */
+  rowPlan?: import("./row-sessions").RowPlan;
 };
 
 export type Workout = {

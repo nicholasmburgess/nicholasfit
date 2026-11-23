@@ -2,7 +2,9 @@ import * as Haptics from "expo-haptics";
 import { useEffect, useRef, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { easyRange, formatClock, formatMetres, formatSplit, rowLine, zoneOf } from "@/lib/row";
+import { ZONE_PCT, formatClock, formatMetres, formatSplit, rowLine, zoneOf } from "@/lib/row";
+import { type RowSession, workReps } from "@/lib/row-sessions";
+import type { IntervalState } from "./intervals";
 import type { RowPiece } from "@/lib/types";
 import type { HrUpdate } from "./heartRate";
 import type { Pm5Update } from "./pm5";
@@ -44,10 +46,13 @@ export function RowOverlay({
   hr,
   maxHr,
   saved,
+  guided,
   canFinish,
   onMinimise,
   onFinish,
 }: {
+  /** A guided row (tempo or intervals): where it's up to and the target split for hard parts. */
+  guided: { session: RowSession; state: IntervalState | null; targetSplitS: number | null } | null;
   pm5: Pm5Update | null;
   hr: HrUpdate | null;
   /** Estimated max heart rate; null when the birth year isn't known yet. */
@@ -71,6 +76,13 @@ export function RowOverlay({
   const hero = Math.round(base * 0.3);
   const mid = Math.round(base * 0.14);
   const small = Math.round(base * 0.11);
+  const st8 = guided?.state ?? null;
+  const kind = st8?.seg.kind;
+  // What the heart-rate guide aims for right now.
+  const mode: GuideMode = !guided ? "easy" : kind === "work" ? "work" : kind === "easy" ? "recover" : "easy";
+  const zone: [number, number] = mode === "work" && guided ? guided.session.workZone : [2, 2];
+  const target = mode === "work" ? (guided?.targetSplitS ?? null) : null;
+  const split = live?.moving ? live.splitS : null;
 
   return (
     <Modal animationType="fade" visible onRequestClose={onMinimise} supportedOrientations={["portrait", "landscape"]}>
@@ -91,18 +103,24 @@ export function RowOverlay({
               <Text style={{ color: D.accent, fontSize: 22, fontWeight: "800", textAlign: "center" }}>✓ Row saved</Text>
               <Big value={formatMetres(saved.distanceM)} size={mid} />
               <Text style={{ color: D.text, fontSize: 20, textAlign: "center", lineHeight: 28 }}>{rowLine(saved)}</Text>
-              <Text style={{ color: D.muted, fontSize: 15, textAlign: "center" }}>Start rowing again to log another piece.</Text>
+              {!!saved.reps?.length && <RepTable reps={saved.reps} target={saved.targetSplitS ?? null} />}
+              {!saved.session && <Text style={{ color: D.muted, fontSize: 15, textAlign: "center" }}>Start rowing again to log another piece.</Text>}
             </View>
           ) : (
             <View style={[s.fill, { gap: 12 }, wide && { flexDirection: "row" }]}>
-              <View style={[s.tile, { flex: wide ? 1.2 : 1.3 }]}>
+              <View style={{ flex: wide ? 1.2 : 1.3, gap: 12 }}>
+              {guided && <IntervalBanner session={guided.session} state={st8} />}
+              <View style={[s.tile, { flex: 1 }]}>
                 <Text style={s.label}>{paused ? "PAUSED" : "SPLIT /500M"}</Text>
-                <Big value={formatSplit(live?.moving ? live.splitS : null)} size={hero} />
+                <Big value={formatSplit(split)} size={guided ? Math.round(hero * 0.85) : hero} />
+                {target != null && <TargetLine split={split} target={target} />}
+                {guided && st8?.seg.kind === "warmup" && <Text style={{ color: D.muted, fontSize: 17, textAlign: "center" }}>Warm up easy · {guided.targetSplitS ? `hard reps aim for ${formatSplit(guided.targetSplitS, false)}` : "first rep sets your target"}</Text>}
                 {!active && <Text style={{ color: D.muted, fontSize: 17, textAlign: "center" }}>{pm5?.status === "connected" ? "Start rowing. Numbers appear with your first stroke." : "Wake the PM5 and close ErgData."}</Text>}
-                {active && live?.avgSplitS != null && <Text style={{ color: D.muted, fontSize: 18, textAlign: "center", fontVariant: ["tabular-nums"] }}>avg {formatSplit(live.avgSplitS)}</Text>}
+                {active && !guided && live?.avgSplitS != null && <Text style={{ color: D.muted, fontSize: 18, textAlign: "center", fontVariant: ["tabular-nums"] }}>avg {formatSplit(live.avgSplitS)}</Text>}
+              </View>
               </View>
               <View style={{ flex: wide ? 1 : 2, gap: 12 }}>
-                <PaceGuide bpm={bpm} maxHr={maxHr} rowing={active} />
+                <PaceGuide key={`${mode}-${st8?.index ?? 0}`} bpm={bpm} maxHr={maxHr} rowing={active} mode={mode} zone={zone} />
                 <View style={[s.row, { flex: 0.9, gap: 12 }]}>
                   <Tile label="TIME" value={formatClock(live?.elapsedS ?? 0)} size={mid} />
                   <Tile label="METRES" value={Math.round(live?.distanceM ?? 0).toLocaleString("en-AU")} size={mid} />
@@ -126,12 +144,24 @@ export function RowOverlay({
   );
 }
 
+type GuideMode = "easy" | "work" | "recover";
+
+/** bpm range of zones lo..hi. */
+function zoneRange(max: number, [lo, hi]: [number, number]): [number, number] {
+  return [Math.round(max * ZONE_PCT[lo - 1]), Math.round(max * ZONE_PCT[hi])];
+}
+
 /**
- * Heart rate with what to do about it: hold this pace in zone 2, ease off above it (amber after
- * 20 s, with one buzz; red in zone 4+), or a nudge to push a little below it.
+ * Heart rate with what to do about it.
+ * - easy (easy row, warm-up, cool-down): hold zone 2; ease off above it (amber after 20 s with one
+ *   buzz, red in zone 4+); a nudge to push a little below it.
+ * - work (hard rep): aim for the session's zone. Heart rate lags a minute or so behind effort, so
+ *   below the zone just says to hold the target split; above it warns after 20 s.
+ * - recover (easy part between reps): no warnings, it's meant to be coming down.
  */
-function PaceGuide({ bpm, maxHr, rowing }: { bpm: number | null; maxHr: number | null; rowing: boolean }) {
-  const above = bpm != null && maxHr != null && zoneOf(bpm, maxHr) >= 3;
+function PaceGuide({ bpm, maxHr, rowing, mode, zone: aim }: { bpm: number | null; maxHr: number | null; rowing: boolean; mode: GuideMode; zone: [number, number] }) {
+  const z = bpm != null && maxHr != null ? zoneOf(bpm, maxHr) : null;
+  const above = z != null && mode !== "recover" && z > aim[1];
   const since = useRef<number | null>(null);
   const [warn, setWarn] = useState(false);
   useEffect(() => {
@@ -148,7 +178,7 @@ function PaceGuide({ bpm, maxHr, rowing }: { bpm: number | null; maxHr: number |
     if (warn) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
   }, [warn]);
 
-  if (bpm == null || maxHr == null) {
+  if (bpm == null || maxHr == null || z == null) {
     return (
       <View style={[s.guide, { backgroundColor: GUIDE.none.bg }]}>
         <Text style={{ color: D.text, fontSize: 30, fontWeight: "800", fontVariant: ["tabular-nums"] }}>
@@ -156,32 +186,35 @@ function PaceGuide({ bpm, maxHr, rowing }: { bpm: number | null; maxHr: number |
           {bpm ?? "–"}
         </Text>
         <Text style={{ color: D.muted, fontSize: 14 }}>
-          {bpm == null ? "No heart rate. Put the strap on (wet the contacts)." : "Add your birth year in the app's profile to see your easy zone."}
+          {bpm == null ? "No heart rate. Put the strap on (wet the contacts)." : "Add your birth year in the app's profile to see your zones."}
         </Text>
       </View>
     );
   }
-  const zone = zoneOf(bpm, maxHr);
-  const [lo, hi] = easyRange(maxHr);
-  const state = zone >= 4 && warn ? "tooHigh" : zone >= 3 && warn ? "high" : zone <= 1 && rowing ? "low" : "ok";
-  const g = GUIDE[state];
-  const msg =
-    state === "tooHigh"
-      ? "Well above easy · slow right down"
-      : state === "high"
-        ? "Too hard for an easy row · ease off"
-        : state === "low"
-          ? "Below your easy zone · push a little"
-          : zone >= 3
-            ? "Drifting high · ease off a touch"
-            : "In your easy zone · hold this pace";
-  // Marker position on the zone bar: 50% of max at the left, 100% at the right.
+  const [lo, hi] = zoneRange(maxHr, aim);
+  let state: keyof typeof GUIDE;
+  let msg: string;
+  if (mode === "recover") {
+    state = z <= 2 ? "ok" : "high";
+    msg = z <= 2 ? "Recovered · ready for the next rep" : "Recovering · let your heart rate drop";
+  } else if (above) {
+    state = warn ? ((z >= 4 && aim[1] < 4) || (z === 5 && aim[1] < 5) ? "tooHigh" : "high") : "ok";
+    msg = mode === "work" ? (warn ? "Above target · ease off a little" : "Drifting high · ease off a touch") : warn ? (z >= 4 ? "Well above easy · slow right down" : "Too hard for an easy row · ease off") : "Drifting high · ease off a touch";
+  } else if (z < aim[0]) {
+    state = mode === "work" ? "ok" : rowing ? "low" : "ok";
+    msg = mode === "work" ? "Heart rate catching up · hold your target split" : "Below your easy zone · push a little";
+  } else {
+    state = "ok";
+    msg = mode === "work" ? "Right where you should be · keep it" : "In your easy zone · hold this pace";
+  }
+  const g = mode === "work" && state === "ok" ? { ink: "#ff8a4c", bg: "#3b1e10" } : GUIDE[state];
   const pos = Math.min(1, Math.max(0, (bpm / maxHr - 0.5) / 0.5));
+  const label = aim[0] === aim[1] ? `zone ${aim[0]}` : `zones ${aim[0]}–${aim[1]}`;
   return (
-    <View style={[s.guide, { backgroundColor: g.bg }]} accessibilityLabel={`Heart rate ${bpm}, zone ${zone}. ${msg}`}>
+    <View style={[s.guide, { backgroundColor: g.bg }]} accessibilityLabel={`Heart rate ${bpm}, zone ${z}. ${msg}`}>
       <View style={[s.row, { alignItems: "baseline" }]}>
         <Text style={{ color: g.ink, fontSize: 40, fontWeight: "800", fontVariant: ["tabular-nums"] }}>♥ {bpm}</Text>
-        <Text style={{ color: g.ink, fontSize: 15, fontWeight: "800", letterSpacing: 0.5 }}>ZONE {zone}</Text>
+        <Text style={{ color: g.ink, fontSize: 15, fontWeight: "800", letterSpacing: 0.5 }}>ZONE {z}</Text>
       </View>
       <Text style={{ color: D.text, fontSize: 18, fontWeight: "700" }}>{msg}</Text>
       <View style={{ flexDirection: "row", gap: 4, marginTop: 2 }}>
@@ -191,8 +224,91 @@ function PaceGuide({ bpm, maxHr, rowing }: { bpm: number | null; maxHr: number |
         <View style={{ position: "absolute", top: -4, left: `${pos * 100}%`, width: 4, height: 16, borderRadius: 2, backgroundColor: "#fff", marginLeft: -2 }} />
       </View>
       <Text style={{ color: D.muted, fontSize: 13 }}>
-        Easy zone {lo}–{hi} bpm
+        {mode === "recover" ? `Easy zone ${zoneRange(maxHr, [2, 2]).join("–")} bpm` : `Target ${label} · ${lo}–${hi} bpm`}
       </Text>
+    </View>
+  );
+}
+
+const PHASE: Record<string, { label: string; ink: string; bg: string }> = {
+  warmup: { label: "WARM-UP", ink: "#3cc47f", bg: "#0f2a1e" },
+  work: { label: "HARD", ink: "#ff8a4c", bg: "#3b1e10" },
+  easy: { label: "EASY", ink: "#7aa7ff", bg: "#101c33" },
+  cooldown: { label: "COOL-DOWN", ink: "#3cc47f", bg: "#0f2a1e" },
+};
+
+/** Which part of the session, a countdown, what's next, and the reps done so far. */
+function IntervalBanner({ session, state }: { session: RowSession; state: IntervalState | null }) {
+  const n = workReps(session);
+  if (!state) {
+    return (
+      <View style={[s.banner, { backgroundColor: D.tile }]}>
+        <Text style={{ color: D.text, fontSize: 18, fontWeight: "800" }}>{session.name}</Text>
+        <Text style={{ color: D.muted, fontSize: 14, marginTop: 2 }}>{session.short}. Set the PM5 to Just Row and start; the phone times each part. Keep rowing gently in the easy parts.</Text>
+      </View>
+    );
+  }
+  if (state.done) {
+    return (
+      <View style={[s.banner, { backgroundColor: "#0f3d2a" }]}>
+        <Text style={{ color: D.accent, fontSize: 18, fontWeight: "800" }}>✓ Session done</Text>
+      </View>
+    );
+  }
+  const p = PHASE[state.seg.kind];
+  const nextText = !state.next
+    ? "Last part · then you're done"
+    : state.next.kind === "work"
+      ? `Next: rep ${state.rep + 1} · ${formatClock(state.next.seconds)} hard`
+      : state.next.kind === "easy"
+        ? `Next: ${formatClock(state.next.seconds)} easy`
+        : "Next: cool-down";
+  const repsDone = state.seg.kind === "work" ? state.rep - 1 : state.rep;
+  return (
+    <View style={[s.banner, { backgroundColor: p.bg }]}>
+      <View style={[s.row, { alignItems: "baseline" }]}>
+        <Text style={{ color: p.ink, fontSize: 16, fontWeight: "800", letterSpacing: 0.5 }}>{p.label}</Text>
+        {state.seg.kind === "work" || state.seg.kind === "easy" ? <Text style={{ color: D.muted, fontSize: 14 }}>rep {state.rep} of {n}</Text> : null}
+        <Text style={{ marginLeft: "auto", color: D.text, fontSize: 44, fontWeight: "800", fontVariant: ["tabular-nums"] }}>{formatClock(state.left)}</Text>
+      </View>
+      <Text style={{ color: "#cfd8d2", fontSize: 15, marginBottom: 8 }}>{nextText}</Text>
+      <View style={{ flexDirection: "row", gap: 3 }}>
+        {Array.from({ length: n }, (_, i) => (
+          <View key={i} style={{ flex: 1, height: 6, borderRadius: 3, backgroundColor: i < repsDone ? "#ffffff" : i === state.rep - 1 && state.seg.kind === "work" ? p.ink : "#24302a" }} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** "target 2:05 · on pace ✓", or how far off it is. */
+function TargetLine({ split, target }: { split: number | null; target: number }) {
+  const diff = split == null ? null : split - target;
+  const [text, colour] =
+    diff == null ? [`target ${formatSplit(target, false)}`, D.muted] : diff > 1.5 ? [`target ${formatSplit(target, false)} · ${diff.toFixed(1)} s slow`, D.warn] : diff < -5 ? [`target ${formatSplit(target, false)} · a bit fast, save some`, D.warn] : [`target ${formatSplit(target, false)} · on pace ✓`, "#ff8a4c"];
+  return <Text style={{ color: colour, fontSize: 18, fontWeight: "700", textAlign: "center", fontVariant: ["tabular-nums"] }}>{text}</Text>;
+}
+
+/** Each hard rep after a guided row. */
+function RepTable({ reps, target }: { reps: NonNullable<RowPiece["reps"]>; target: number | null }) {
+  const best = Math.min(...reps.map((r) => r.splitS ?? Infinity));
+  const shown = reps.length > 8 ? [...reps.slice(0, 4), ...reps.slice(-3)] : reps;
+  return (
+    <View style={[s.tile, { alignItems: "stretch", paddingHorizontal: 14 }]}>
+      <View style={s.tr}>
+        {["REP", "SPLIT", "SPM", "W", "♥ MAX"].map((h) => (
+          <Text key={h} style={[s.td, s.label, { textAlign: h === "REP" ? "left" : "right" }]}>{h}</Text>
+        ))}
+      </View>
+      {shown.map((r) => (
+        <View key={r.rep} style={s.tr}>
+          <Text style={[s.td, { textAlign: "left" }]}>{r.rep}</Text>
+          <Text style={[s.td, r.splitS === best && { color: D.accent, fontWeight: "800" }, target != null && r.splitS != null && r.splitS > target + 1.5 && { color: D.warn }]}>{formatSplit(r.splitS)}</Text>
+          <Text style={s.td}>{r.avgSpm ?? "–"}</Text>
+          <Text style={s.td}>{r.avgWatts ?? "–"}</Text>
+          <Text style={s.td}>{r.maxHr ?? "–"}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -253,4 +369,7 @@ const s = StyleSheet.create({
   btn: { height: 60, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   status: { borderRadius: 14, padding: 12, marginTop: 10 },
   guide: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, gap: 4 },
+  banner: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  tr: { flexDirection: "row", paddingVertical: 4 },
+  td: { flex: 1, color: D.text, fontSize: 15, textAlign: "right", fontVariant: ["tabular-nums"] },
 });

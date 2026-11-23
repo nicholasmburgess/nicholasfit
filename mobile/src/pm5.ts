@@ -68,6 +68,8 @@ export class Pm5Session {
   private spmSum = 0;
   private spmCount = 0;
   private lastElapsed = 0;
+  /** After a guided row is logged early, ignore the rest of that PM5 piece until it's ended or reset. */
+  private hold = false;
 
   /**
    * onUpdate: every status change and every data packet (about twice a second while rowing).
@@ -98,6 +100,13 @@ export class Pm5Session {
   /** The piece so far, if anything has been rowed. Used when the set is ticked by hand. */
   current(): Omit<RowPiece, "avgHr" | "maxHr"> | null {
     return this.pieceStart != null && this.live.distanceM > 0 ? this.piece() : null;
+  }
+
+  /** Log the piece now (a guided row finished) and ignore the rest of it on the PM5. */
+  finishPiece() {
+    if (this.pieceStart == null) return;
+    this.endPiece();
+    this.hold = true;
   }
 
   private emit(status: Pm5Status, message?: string) {
@@ -165,10 +174,11 @@ export class Pm5Session {
     const rowingState = b[9];
     // The monitor was reset (clock went back) while a piece was going: close the old one first.
     if (this.pieceStart != null && elapsedS + 5 < this.lastElapsed) this.endPiece();
+    if (this.hold && (elapsedS + 5 < this.lastElapsed || ENDED_STATES.has(workoutState) || workoutState === 0)) this.hold = false;
     this.lastElapsed = elapsedS;
 
     const active = ACTIVE_STATES.has(workoutState) && (elapsedS > 0 || distanceM > 0);
-    if (active && this.pieceStart == null) {
+    if (active && this.pieceStart == null && !this.hold) {
       this.pieceStart = Date.now() - elapsedS * 1000;
       this.spmSum = 0;
       this.spmCount = 0;
