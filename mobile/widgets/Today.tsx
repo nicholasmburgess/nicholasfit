@@ -34,7 +34,7 @@ const Today = (p: TodayProps, env: WidgetEnvironment) => {
   const green = dark ? "#3cc47f" : "#0b4d34";
   const ink = dark ? "#eef2ec" : "#101814";
   const muted = dark ? "#8f9b93" : "#66706b";
-  const bg = dark ? "#0a0f0c" : "#ffffff";
+  const bg = dark ? "#000000" : "#ffffff";
   const amber = dark ? "#f0b44c" : "#b7791f";
   const family = env.widgetFamily ?? "systemSmall";
 
