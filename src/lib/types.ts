@@ -15,6 +15,25 @@ export type SetLog = {
   done: boolean;
   /** How the set felt, tapped after ticking it. Drives the next set's weight and next session's jump. */
   feel?: Feel;
+  /** A row logged live from the Concept2 PM5 over Bluetooth (one piece per set). */
+  row?: RowPiece;
+};
+
+/** Totals for one piece rowed on the Concept2, read live from the PM5 monitor. */
+export type RowPiece = {
+  startedAt: string;
+  seconds: number;
+  distanceM: number;
+  /** Average pace, seconds per 500 m. */
+  avgSplitS: number | null;
+  avgSpm: number | null;
+  avgWatts: number | null;
+  /** Calories as the PM5 shows them (Concept2's formula, includes about 300 kcal/h resting). */
+  kcal: number | null;
+  strokes: number | null;
+  avgHr: number | null;
+  maxHr: number | null;
+  source: "pm5";
 };
 
 export type Entry = {

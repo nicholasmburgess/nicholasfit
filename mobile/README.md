@@ -8,6 +8,7 @@ The iPhone app shows the normal Nicholasfit site inside it, so every feature (an
 
 - **Apple Health sync**: sleep, resting heart rate, heart rate variability (HRV), steps, and rows that Concept2 ErgData saves to Health. Shown on the Progress tab, and the weekly coach uses them to judge recovery.
 - **Live heart rate** from your Polar strap during a workout (under the workout title).
+- **Live Concept2 rowing**: in any workout with rowing (e.g. *Easy row*) the app connects to the PM5 by Bluetooth. Your first stroke opens a full-screen view with big split, time, metres, stroke rate, watts and heart rate. When you end the piece on the PM5 it's logged on the rowing set (distance, time, average split, stroke rate, watts, heart rate) and saved to Apple Health as a rowing workout when you tap Finish.
 - **Workouts saved to Apple Health** when you tap Finish, with the strap's heart rate.
 - The screen stays awake during a workout.
 - **Widgets**: a *Nicholasfit* widget for the Home Screen (small or medium) and the Lock Screen (circle, rectangle or one line) showing your next workout, calories left, protein, weight trend and sessions this week. Tap it to open the app.
@@ -74,6 +75,12 @@ npm run setup
 3. Allow notifications when the workout screen asks (that's the rest-timer alert).
 4. Start a workout with your Polar strap on (wet the strap's contacts). Allow Bluetooth when asked. Your heart rate appears under the workout title. If the Polar app is open and connected to the strap, close it first.
 
+### Rowing with the PM5
+1. Close ErgData (the PM5 only talks to one app at a time).
+2. Start **Easy row** (or any workout with rowing). Wake the PM5 by pressing any button. The rowing card says **PM5 connected** within a few seconds. If it still says *Looking for your rower* after 20 seconds, press **Connect** on the PM5's main menu.
+3. Choose a workout on the PM5 as usual (Just Row is fine) and start rowing. The live view opens by itself. **Show sets** goes back to the workout; **Live view** on the rowing card returns.
+4. When you're done, end the piece on the PM5 (press **Menu**). The row is logged and ticked. Tap **Finish workout**.
+
 ### 7. Add the widgets
 - **Home Screen**: touch and hold an empty spot until the icons wiggle, tap **Edit** (top left) → **Add Widget**, search **Nicholasfit**, swipe through the choices (*Nicholasfit* in small or medium, then *Nutrition rings*), tap **Add Widget**, then **Done**.
 - **Lock Screen**: touch and hold the Lock Screen, tap **Customize** → **Lock Screen**, tap the row of widgets under the clock, choose **Nicholasfit** and tap the circle or rectangle. Tap **Done**.
@@ -123,6 +130,7 @@ npm run setup
 ## For developers
 - Expo SDK 58, React Native, `react-native-webview` loading `https://nicholasfit.vercel.app`.
 - `src/health.ts` (`@kingstinct/react-native-healthkit`) and `src/heartRate.ts` (`react-native-ble-plx`, standard Heart Rate service 0x180D).
+- `src/pm5.ts`: Concept2 PM5 over BLE (Concept2's PM5 Bluetooth Smart interface: rowing service CE060030, status characteristics 0031/0032/0033/0036, summary 0039). `src/ble.ts` shares one scan between the strap and the PM5. `src/RowLive.tsx` is the live view.
 - The web app talks to this shell through `src/lib/native.ts` in the site: page → native via `window.ReactNativeWebView.postMessage`, native → page via a `nicholasfit-native` CustomEvent. `window.NicholasfitNative` is set before the page loads.
 - `src/WorkoutScreen.tsx` is the native workout screen; `src/store.ts` keeps workouts in AsyncStorage with an outbox that upserts to Supabase REST using the session the site hands over. Workout logic (`progression`, `adjustable`, `plan`, `new-workout`, `exercises`) is shared from the site's `src/lib` via the `@/` alias in `metro.config.js` and `tsconfig.json`.
 - Bridge v2: site → native `session`, `snapshot`, `startWorkout`, `openWorkout`; native → site `workoutClosed`. Whoever holds a workout syncs it; hand-overs release the other side's outbox first.

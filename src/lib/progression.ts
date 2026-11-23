@@ -1,5 +1,6 @@
 import { isAdjustable } from "./adjustable";
 import { getExercise } from "./exercises";
+import { formatMetres, workoutRows } from "./row";
 import type { Entry, Feel, SetLog, Target, Workout } from "./types";
 
 export type Suggestion = { weight: number | null; reps: number | null; hint: string };
@@ -149,8 +150,9 @@ export function workoutSummary(w: Workout): [string, string] {
   const minutes = w.entries
     .filter((e) => getExercise(e.exerciseId)?.unit === "minutes")
     .reduce((m, e) => m + e.sets.filter((s) => s.done).reduce((a, s) => a + (s.reps ?? 0), 0), 0);
+  const metres = workoutRows(w).reduce((m, r) => m + r.distanceM, 0);
   const first = `${sets} ${sets === 1 ? "set" : "sets"}`;
-  const second = kg > 0 ? `${Math.round(kg).toLocaleString("en-AU")} kg` : minutes > 0 ? `${minutes} min` : "";
+  const second = kg > 0 ? `${Math.round(kg).toLocaleString("en-AU")} kg` : metres > 0 ? formatMetres(metres) : minutes > 0 ? `${minutes} min` : "";
   return [first, second];
 }
 

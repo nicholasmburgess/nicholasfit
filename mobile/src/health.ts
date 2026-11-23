@@ -1,5 +1,6 @@
 import {
   CategoryValueSleepAnalysis,
+  authorizationStatusFor,
   WorkoutActivityType,
   isHealthDataAvailable,
   queryCategorySamples,
@@ -8,6 +9,8 @@ import {
   requestAuthorization,
   saveWorkoutSample,
 } from "@kingstinct/react-native-healthkit";
+import { activeKcal } from "@/lib/row";
+import type { RowPiece } from "@/lib/types";
 import type { HrSample } from "./heartRate";
 
 const READ = [
@@ -19,7 +22,7 @@ const READ = [
   "HKCategoryTypeIdentifierSleepAnalysis",
   "HKWorkoutTypeIdentifier",
 ] as const;
-const SHARE = ["HKWorkoutTypeIdentifier", "HKQuantityTypeIdentifierHeartRate"] as const;
+const SHARE = ["HKWorkoutTypeIdentifier", "HKQuantityTypeIdentifierHeartRate", "HKQuantityTypeIdentifierActiveEnergyBurned"] as const;
 
 /** One calendar day (phone's time zone) of recovery and activity data. Missing values are null. */
 export type HealthDay = {
@@ -176,6 +179,45 @@ export async function saveStrengthWorkout(w: { id: string; name: string; started
     HKWorkoutBrandName: "Nicholasfit",
     name: w.name,
   });
+  const bpms = hr.map((s) => s.bpm);
+  return bpms.length ? { avgHr: Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length), maxHr: Math.max(...bpms) } : { avgHr: null, maxHr: null };
+}
+
+/**
+ * Saves a rowing session logged live from the PM5: distance, active calories and heart rate.
+ * Calorie samples are only added when Health allows them, so a switched-off permission can't fail the save.
+ */
+export async function saveRowingWorkout(w: { id: string; name: string; startedAt: string; finishedAt: string }, rows: RowPiece[], hr: HrSample[]) {
+  const start = new Date(w.startedAt);
+  const end = new Date(w.finishedAt);
+  const distance = rows.reduce((a, r) => a + r.distanceM, 0);
+  const kcal = rows.reduce((a, r) => a + (activeKcal(r) ?? 0), 0);
+  const heart = hr.map((s) => ({
+    quantityType: "HKQuantityTypeIdentifierHeartRate" as const,
+    unit: "count/min",
+    quantity: s.bpm,
+    startDate: new Date(s.at),
+    endDate: new Date(s.at),
+  }));
+  // One calorie sample per piece, so Apple's Activity rings count the row.
+  const energy = rows
+    .filter((r) => (activeKcal(r) ?? 0) > 0)
+    .map((r) => ({
+      quantityType: "HKQuantityTypeIdentifierActiveEnergyBurned" as const,
+      unit: "kcal",
+      quantity: activeKcal(r)!,
+      startDate: new Date(r.startedAt),
+      endDate: new Date(Math.min(Date.parse(r.startedAt) + r.seconds * 1000, end.getTime())),
+    }));
+  const metadata = { HKExternalUUID: w.id, HKWorkoutBrandName: "Nicholasfit", HKIndoorWorkout: true, name: w.name };
+  const totals = { distance: distance || undefined, energyBurned: kcal || undefined };
+  let energyOk = false;
+  try {
+    energyOk = Number(authorizationStatusFor("HKQuantityTypeIdentifierActiveEnergyBurned")) === 2; // sharingAuthorized
+  } catch {
+    energyOk = false;
+  }
+  await saveWorkoutSample(WorkoutActivityType.rowing, energyOk ? [...heart, ...energy] : heart, start, end, totals, metadata);
   const bpms = hr.map((s) => s.bpm);
   return bpms.length ? { avgHr: Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length), maxHr: Math.max(...bpms) } : { avgHr: null, maxHr: null };
 }

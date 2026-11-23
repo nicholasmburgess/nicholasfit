@@ -39,7 +39,7 @@
           "modes": [
             "central"
           ],
-          "bluetoothAlwaysPermission": "Nicholasfit connects to your heart rate strap to show your heart rate during workouts."
+          "bluetoothAlwaysPermission": "Nicholasfit connects to your heart rate strap and Concept2 rower to show live numbers during workouts."
         }
       ],
       [
