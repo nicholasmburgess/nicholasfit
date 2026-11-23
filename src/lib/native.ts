@@ -43,7 +43,7 @@ export type ToNative =
   | { type: "hrStop" }
   | { type: "workoutFinished"; id: string; name: string; startedAt: string; finishedAt: string }
   | { type: "session"; session: { url: string; anonKey: string; accessToken: string; refreshToken: string; expiresAt: number } }
-  | { type: "snapshot"; snapshot: { plan: Plan; history: Workout[] } }
+  | { type: "snapshot"; snapshot: { plan: Plan; history: Workout[]; birthYear?: number | null } }
   | { type: "startWorkout"; key: string | null; snapshot?: { plan: Plan; history: Workout[] } }
   | { type: "openWorkout"; workout: Workout }
   | { type: "shareFile"; name: string; mime: string; text: string };

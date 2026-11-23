@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { foodStore } from "@/lib/food-store";
 import { healthError, lastHealthSync, saveHealth } from "@/lib/health-store";
 import { isNativeApp, nativeVersion, onNative, postNative } from "@/lib/native";
 import { planStore } from "@/lib/plan-store";
@@ -19,8 +20,9 @@ const EVERY_MS = 3 * 3600e3;
 export async function sendSnapshot() {
   if (nativeVersion() < 2) return;
   try {
-    const [plan, all] = await Promise.all([planStore.get(), store.listWorkouts()]);
-    postNative({ type: "snapshot", snapshot: { plan, history: all.filter((w) => w.finishedAt).slice(0, 60) } });
+    const [plan, all, profile] = await Promise.all([planStore.get(), store.listWorkouts(), foodStore.getProfile().catch(() => null)]);
+    // Birth year sets the heart-rate zones on the rowing screen.
+    postNative({ type: "snapshot", snapshot: { plan, history: all.filter((w) => w.finishedAt).slice(0, 60), birthYear: profile?.birthYear ?? null } });
   } catch {
     // Offline: the phone keeps the last snapshot.
   }

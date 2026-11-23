@@ -8,7 +8,7 @@ The iPhone app shows the normal Nicholasfit site inside it, so every feature (an
 
 - **Apple Health sync**: sleep, resting heart rate, heart rate variability (HRV), steps, and rows that Concept2 ErgData saves to Health. Shown on the Progress tab, and the weekly coach uses them to judge recovery.
 - **Live heart rate** from your Polar strap during a workout (under the workout title).
-- **Live Concept2 rowing**: in any workout with rowing (e.g. *Easy row*) the app connects to the PM5 by Bluetooth. Your first stroke opens a full-screen view with big split, time, metres, stroke rate, watts and heart rate. When you end the piece on the PM5 it's logged on the rowing set (distance, time, average split, stroke rate, watts, heart rate) and saved to Apple Health as a rowing workout when you tap Finish.
+- **Live Concept2 rowing**: in any workout with rowing (e.g. *Easy row*) the app connects to the PM5 by Bluetooth. Your first stroke opens a full-screen view: big split, then a heart-rate pace guide (zone 2 = easy, from your birth year in the profile; amber with one buzz after 20 s above it), time, metres, stroke rate and watts. When you end the piece on the PM5 it's logged on the rowing set (distance, time, average split, stroke rate, watts, heart rate) and saved to Apple Health as a rowing workout when you tap Finish.
 - **Workouts saved to Apple Health** when you tap Finish, with the strap's heart rate.
 - The screen stays awake during a workout.
 - **Widgets**: a *Nicholasfit* widget for the Home Screen (small or medium) and the Lock Screen (circle, rectangle or one line) showing your next workout, calories left, protein, weight trend and sessions this week. Tap it to open the app.

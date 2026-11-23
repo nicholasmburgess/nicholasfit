@@ -51,3 +51,23 @@ export function activeKcal(r: RowPiece): number | null {
 
 /** The Concept2 rower in the exercise list. */
 export const ROW_EXERCISE = "Rowing_Stationary";
+
+/**
+ * Heart-rate zones as % of estimated max heart rate (Tanaka et al. 2001: 208 − 0.7 × age),
+ * the usual five-zone split: 1 = 50–60%, 2 = 60–70% (easy, aerobic base), 3 = 70–80%,
+ * 4 = 80–90%, 5 = 90–100%. Easy rows aim for zone 2.
+ */
+export function maxHeartRate(birthYear: number, now = new Date()): number {
+  return Math.round(208 - 0.7 * (now.getFullYear() - birthYear));
+}
+export const ZONE_PCT = [0.5, 0.6, 0.7, 0.8, 0.9, 1] as const;
+/** The easy (zone 2) range in bpm. */
+export function easyRange(max: number): [number, number] {
+  return [Math.round(max * ZONE_PCT[1]), Math.round(max * ZONE_PCT[2])];
+}
+/** Zone 1–5 for a heart rate (below zone 1 counts as 1). */
+export function zoneOf(bpm: number, max: number): number {
+  const pct = bpm / max;
+  for (let z = 5; z >= 1; z--) if (pct >= ZONE_PCT[z - 1]) return z;
+  return 1;
+}

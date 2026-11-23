@@ -11,7 +11,7 @@ import { FEELS } from "@/lib/feel";
 import { applyFeel, exerciseHistory } from "@/lib/progression";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
-import { ROW_EXERCISE, rowLine } from "@/lib/row";
+import { ROW_EXERCISE, maxHeartRate, rowLine } from "@/lib/row";
 import type { Entry, Feel, RowPiece, SetLog, Workout } from "@/lib/types";
 import { DemoSheet } from "./DemoSheet";
 import { saveDemosForOffline } from "./demos";
@@ -50,6 +50,7 @@ export function WorkoutScreen({
   history,
   hr,
   hrSamples,
+  birthYear,
   onFinish,
   onDiscard,
   onOpenWeb,
@@ -59,6 +60,8 @@ export function WorkoutScreen({
   hr: HrUpdate | null;
   /** Heart rate recorded so far by the strap, for a row's average and max. */
   hrSamples: () => HrSample[];
+  /** From the profile on the website; sets the heart-rate zones on the rowing screen. */
+  birthYear: number | null;
   onFinish: (w: Workout) => void;
   onDiscard: (w: Workout) => void;
   /** Swap, add or anything else the full website view does. */
@@ -406,6 +409,7 @@ export function WorkoutScreen({
         <RowOverlay
           pm5={pm5}
           hr={hr}
+          maxHr={birthYear ? maxHeartRate(birthYear) : null}
           saved={savedRow}
           canFinish={doneSets > 0 && w.entries.every((e) => e.sets.every((x) => x.done))}
           onMinimise={() => setRowOpen(false)}

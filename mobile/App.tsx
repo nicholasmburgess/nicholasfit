@@ -54,7 +54,7 @@ export default function App() {
   );
 }
 
-type Open = { workout: Workout; history: Workout[] };
+type Open = { workout: Workout; history: Workout[]; birthYear: number | null };
 
 function Shell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -125,7 +125,7 @@ function Shell() {
   const openWorkout = useCallback(
     async (w: Workout) => {
       const snap = await getSnapshot();
-      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id) });
+      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id), birthYear: snap?.birthYear ?? null });
       startHr();
     },
     [startHr],
@@ -258,6 +258,7 @@ function Shell() {
         history={open.history}
         hr={hrState}
         hrSamples={() => hr.current?.samples ?? []}
+        birthYear={open.birthYear}
         onFinish={async (w) => {
           setOpen(null);
           // Rowing-only sessions go to Health as rowing; a row inside a strength day stays part of it.
