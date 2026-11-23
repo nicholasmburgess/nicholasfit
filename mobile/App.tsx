@@ -4,13 +4,13 @@ import * as Sharing from "expo-sharing";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { StatusBar } from "expo-status-bar";
 import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, AppState, Linking, Modal, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
-import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { ActivityIndicator, Alert, AppState, Linking, Pressable, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { authorize, healthAvailable, readHealth, saveStrengthWorkout } from "./src/health";
 import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
-import { type Session, activeWorkout, deleteRemote, getSnapshot, localFinished, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
+import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
 import { WorkoutScreen } from "./src/WorkoutScreen";
 import { endAllRests } from "./src/restActivity";
 import { refreshWidget } from "./src/widgetData";
@@ -153,7 +153,7 @@ function Shell() {
     activeWorkout().then((w) => w && openWorkout(w));
   }, [openWorkout]);
 
-  // Widget buttons: nicholasfit://log-food and nicholasfit://start-workout.
+  // The Nutrition rings widget opens nicholasfit://log-food.
   const pendingFood = useRef(false);
   const openFood = useCallback(() => {
     if (!webReady.current) {
@@ -162,31 +162,16 @@ function Shell() {
     }
     web.current?.injectJavaScript(`window.location.assign(${JSON.stringify(`${APP_URL}/food?log=1`)}); true;`);
   }, []);
-  const startNext = useCallback(async () => {
-    const snap = await getSnapshot();
-    startWorkout(nextRoutineKey([...(await localFinished()), ...(snap?.history ?? [])]));
-  }, [startWorkout]);
-  // The Nutrition rings widget opens this: Log food or Start workout.
-  const [quick, setQuick] = useState<{ workout: string; resume: boolean } | null>(null);
-  const showQuick = useCallback(async () => {
-    const active = await activeWorkout();
-    if (active) return setQuick({ workout: active.name, resume: true });
-    const snap = await getSnapshot();
-    const key = nextRoutineKey([...(await localFinished()), ...(snap?.history ?? [])]);
-    const r = planRoutines(snap?.plan ?? DEFAULT_PLAN);
-    setQuick({ workout: (r.find((x) => x.key === key) ?? r[0])?.name ?? "workout", resume: false });
-  }, []);
   useEffect(() => {
     const handle = (url?: string | null) => {
       const action = url?.match(/^nicholasfit:\/\/([\w-]+)/)?.[1];
-      if (action === "log-food") openFood();
-      else if (action === "start-workout") startNext();
-      else if (action === "quick") showQuick();
+      // nicholasfit://quick is the old rings-widget link: it now opens food logging too.
+      if (action === "log-food" || action === "quick") openFood();
     };
     Linking.getInitialURL().then(handle).catch(() => {});
     const sub = Linking.addEventListener("url", (e) => handle(e.url));
     return () => sub.remove();
-  }, [openFood, startNext, showQuick]);
+  }, [openFood]);
 
   // A rest timer left on the Lock Screen by a closed app is cleared; the widget gets fresh numbers.
   useEffect(() => {
@@ -294,28 +279,11 @@ function Shell() {
     </View>
   );
 
-  const quickSheet = (
-    <QuickStart
-      c={c}
-      state={quick}
-      onClose={() => setQuick(null)}
-      onFood={() => {
-        setQuick(null);
-        openFood();
-      }}
-      onWorkout={() => {
-        setQuick(null);
-        startNext();
-      }}
-    />
-  );
-
   if (failed)
     return (
       <View style={{ flex: 1 }}>
         <OfflineHome c={c} onRetry={() => setFailed(false)} onStart={startWorkout} />
         {workoutScreen}
-        {quickSheet}
       </View>
     );
 
@@ -360,41 +328,7 @@ function Shell() {
         }}
       />
       {workoutScreen}
-      {quickSheet}
     </SafeAreaView>
-  );
-}
-
-/** Opened from the Nutrition rings widget: two big buttons, tap outside to dismiss. */
-function QuickStart({
-  c,
-  state,
-  onClose,
-  onFood,
-  onWorkout,
-}: {
-  c: (typeof COLORS)["light"];
-  state: { workout: string; resume: boolean } | null;
-  onClose: () => void;
-  onFood: () => void;
-  onWorkout: () => void;
-}) {
-  const insets = useSafeAreaInsets();
-  return (
-    <Modal visible={state != null} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" />
-      <View style={[styles.sheet, { backgroundColor: c.bg, paddingBottom: Math.max(20, insets.bottom + 8) }]}>
-        <View style={[styles.grabber, { backgroundColor: c.muted }]} />
-        <Pressable onPress={onFood} style={({ pressed }) => [styles.primary, { backgroundColor: c.accent, opacity: pressed ? 0.85 : 1 }]}>
-          <Text style={{ color: c.accentInk, fontSize: 19, fontWeight: "700" }}>＋  Log food</Text>
-        </Pressable>
-        <Pressable onPress={onWorkout} style={({ pressed }) => [styles.primary, { borderWidth: 1.5, borderColor: c.accent, opacity: pressed ? 0.7 : 1 }]}>
-          <Text style={{ color: c.text, fontSize: 19, fontWeight: "700" }} numberOfLines={1}>
-            ▶  {state?.resume ? "Resume" : "Start"} {state?.workout}
-          </Text>
-        </Pressable>
-      </View>
-    </Modal>
   );
 }
 
@@ -465,7 +399,4 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, textAlign: "center" },
   button: { marginTop: 8, borderWidth: 1, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
   primary: { height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
-  scrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
-  sheet: { width: "100%", maxWidth: 640, alignSelf: "center", paddingHorizontal: 20, paddingTop: 10, gap: 12, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  grabber: { alignSelf: "center", width: 36, height: 5, borderRadius: 3, opacity: 0.4, marginBottom: 6 },
 });

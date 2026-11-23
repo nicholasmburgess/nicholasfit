@@ -7,7 +7,7 @@ import type { TodayProps } from "./Today";
  * The "Nutrition rings" widget (2x2), styled after Apple's own small widgets: the graphic at
  * the top, one big number bottom-left. Calorie ring outside (green, amber when over), protein
  * ring inside (blue). Tracks are a faint shade of each ring's colour and the ends are rounded.
- * A tap opens the app's quick chooser (Log food / Start workout).
+ * A tap opens the app straight to meal logging.
  *
  * Self-contained like every widget layout (see Today.tsx); the app sends the same numbers as
  * the Today widget.
@@ -58,7 +58,7 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
   const proteinLabel = proteinLeft == null ? "protein" : proteinLeft <= 0 ? "protein ✓" : "protein left";
 
   return (
-    <VStack alignment="leading" spacing={0} modifiers={[...base, widgetURL("nicholasfit://quick")]}>
+    <VStack alignment="leading" spacing={0} modifiers={[...base, widgetURL("nicholasfit://log-food")]}>
       <ZStack>
         {ring(frac(p.kcal, p.kcalTarget), c.kcal, c.kcalTrack, 62, 9)}
         {ring(frac(p.protein, p.proteinTarget), c.protein, c.proteinTrack, 41, 9)}
