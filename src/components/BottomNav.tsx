@@ -14,6 +14,12 @@ const ICONS: Record<string, React.ReactNode> = {
     </>
   ),
   Exercises: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
+  Stretch: (
+    <>
+      <circle cx="15" cy="4.5" r="2" />
+      <path d="M14 7.5l-3 5.5 4 3v5M11 13l-5 2-1.5 5M14 9l5 2" />
+    </>
+  ),
 };
 
 const TABS = [
@@ -22,6 +28,7 @@ const TABS = [
   { href: "/food", label: "Food", match: (p: string) => p.startsWith("/food") },
   { href: "/history", label: "History", match: (p: string) => p.startsWith("/history") },
   { href: "/exercises", label: "Exercises", match: (p: string) => p.startsWith("/exercises") },
+  { href: "/flexibility", label: "Stretch", match: (p: string) => p.startsWith("/flexibility") },
 ];
 
 export function BottomNav() {

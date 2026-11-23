@@ -43,7 +43,10 @@ export function WorkoutSummary({ workout, history }: { workout: Workout; history
       ) : (
         <p className="mt-3 text-sm text-muted">Records will show here once there&apos;s a previous session to beat.</p>
       )}
-      <Link href="/" className="mt-4 block rounded-xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
+      <Link href="/flexibility/cooldown" className="mt-4 block rounded-xl border border-accent/40 py-3 text-center text-sm font-semibold text-accent">
+        Cool-down stretch · optional
+      </Link>
+      <Link href="/" className="mt-2 block rounded-xl bg-accent py-3 text-center text-sm font-semibold text-accent-ink">
         Back to Today
       </Link>
     </section>

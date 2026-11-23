@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getExercise } from "@/lib/exercises";
+import { isSignedIn } from "@/lib/server/auth";
+import { getStretch } from "@/lib/stretches";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, hasSupabase } from "@/lib/supabase/config";
 
 /**
@@ -23,10 +25,11 @@ const SEARCH_AS: Record<string, string> = {
 
 const noStore = { "Cache-Control": "no-store" };
 
+/** The iPhone app sends its session as a bearer token; the website uses its sign-in cookie. */
 async function signedIn(req: Request): Promise<boolean> {
   if (!hasSupabase) return true;
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-  if (!token) return false;
+  if (!token) return isSignedIn();
   const { data } = await createClient(SUPABASE_URL, SUPABASE_ANON_KEY).auth.getUser(token);
   return Boolean(data.user);
 }
@@ -50,12 +53,14 @@ export async function GET(req: Request) {
 
   const id = new URL(req.url).searchParams.get("id") ?? "";
   const ex = getExercise(id);
-  if (!ex) return NextResponse.json({ error: "Unknown exercise" }, { status: 404, headers: noStore });
+  const stretch = ex ? undefined : getStretch(id);
+  if (!ex && !stretch) return NextResponse.json({ error: "Unknown exercise" }, { status: 404, headers: noStore });
 
   try {
-    const term = SEARCH_AS[id] ?? ex.name;
+    const term = SEARCH_AS[id] ?? stretch?.videoSearch ?? ex?.name ?? "";
     const found = await edb<Search>(`/api/v1/exercises/search?search=${encodeURIComponent(term)}`, key);
-    const hit = found?.data?.[0];
+    // For a held stretch, only accept a clip that is itself a stretch, so we never loop the wrong move.
+    const hit = stretch?.kind === "hold" ? found?.data?.find((h) => /stretch|pose/i.test(h.name)) : found?.data?.[0];
     if (!hit) return NextResponse.json({ video: null }, { headers: noStore });
     const detail = await edb<Detail>(`/api/v1/exercises/${encodeURIComponent(hit.exerciseId)}`, key);
     const video = detail?.data?.videoUrl;
