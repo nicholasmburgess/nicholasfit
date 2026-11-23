@@ -22,7 +22,7 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
     : { bg: "#ffffff", muted: "#6b756f", kcal: over ? "#c27c0e" : "#0b4d34", kcalTrack: over ? "#f5ead8" : "#d8e3df", protein: "#2a7de1", proteinTrack: "#ddeafa" };
 
   const num = (n: number) => String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const frac = (v: number, t: number | null) => (t ? Math.max(0, Math.min(1, v / t)) : 0);
+  const frac = (v: number, t?: number) => (t ? Math.max(0, Math.min(1, v / t)) : 0);
   const rounded = (size: number, weight: "semibold" | "bold" | "heavy") => font({ size, weight, design: "rounded" });
 
   // One ring = a faint full-circle track with the progress arc on top (rounded ends).
@@ -75,15 +75,10 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
 };
 
 export default createWidget<TodayProps>("Rings", Rings, {
-  workout: null,
   trainedToday: false,
   sessions: 0,
   sessionGoal: 3,
   kcal: 0,
-  kcalTarget: null,
   protein: 0,
-  proteinTarget: null,
-  weight: null,
-  weightChange: null,
   ready: false,
 });

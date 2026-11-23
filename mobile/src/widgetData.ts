@@ -45,10 +45,10 @@ async function fetchNutrition(dayStart: Date): Promise<Nutrition> {
     day: dayKey(dayStart),
     kcal: Math.round(meals.reduce((n, m) => n + Number(m.kcal || 0), 0)),
     protein: Math.round(meals.reduce((n, m) => n + Number(m.protein || 0), 0)),
-    kcalTarget: t?.kcal ? Math.round(t.kcal) : null,
-    proteinTarget: t?.protein ? Math.round(t.protein) : null,
-    weight: latest ? Math.round(Number(latest.kg) * 10) / 10 : null,
-    weightChange: latest && weekBefore ? Math.round((Number(latest.kg) - Number(weekBefore.kg)) * 10) / 10 : null,
+    kcalTarget: t?.kcal ? Math.round(t.kcal) : undefined,
+    proteinTarget: t?.protein ? Math.round(t.protein) : undefined,
+    weight: latest ? Math.round(Number(latest.kg) * 10) / 10 : undefined,
+    weightChange: latest && weekBefore ? Math.round((Number(latest.kg) - Number(weekBefore.kg)) * 10) / 10 : undefined,
   };
 }
 
@@ -76,7 +76,7 @@ async function build(now: Date): Promise<{ today: TodayProps; tomorrow: TodayPro
   const history = [...local, ...(snap?.history ?? []).filter((w) => w.finishedAt && !ids.has(w.id))];
   const routines = planRoutines(snap?.plan ?? DEFAULT_PLAN);
   const nextKey = nextRoutineKey(history);
-  const workout = (routines.find((r) => r.key === nextKey) ?? routines[0])?.name ?? null;
+  const workout = (routines.find((r) => r.key === nextKey) ?? routines[0])?.name;
   const finishedSince = (d: Date) => history.filter((w) => Date.parse(w.finishedAt!) >= d.getTime()).length;
 
   const today: TodayProps = {
@@ -85,11 +85,11 @@ async function build(now: Date): Promise<{ today: TodayProps; tomorrow: TodayPro
     sessions: finishedSince(startOfWeek(now)),
     sessionGoal: WEEKLY_GOAL,
     kcal: food?.kcal ?? 0,
-    kcalTarget: food?.kcalTarget ?? null,
+    kcalTarget: food?.kcalTarget,
     protein: food?.protein ?? 0,
-    proteinTarget: food?.proteinTarget ?? null,
-    weight: food?.weight ?? null,
-    weightChange: food?.weightChange ?? null,
+    proteinTarget: food?.proteinTarget,
+    weight: food?.weight,
+    weightChange: food?.weightChange,
     ready: Boolean(snap || food),
   };
   const newWeek = startOfWeek(midnight).getTime() !== startOfWeek(now).getTime();
@@ -111,9 +111,11 @@ export function refreshWidget(): void {
     try {
       const { today, tomorrow, midnight } = await build(new Date());
       // Show today's numbers now, and reset calories at midnight even if the app isn't opened.
+      // iOS stores widget data as a property list, which can't hold null or undefined: drop empty fields.
+      const plain = (x: TodayProps) => Object.fromEntries(Object.entries(x).filter(([, v]) => v != null)) as TodayProps;
       const entries = [
-        { date: new Date(), props: today },
-        { date: midnight, props: tomorrow },
+        { date: new Date(), props: plain(today) },
+        { date: midnight, props: plain(tomorrow) },
       ];
       TodayWidget.updateTimeline(entries);
       RingsWidget.updateTimeline(entries);
