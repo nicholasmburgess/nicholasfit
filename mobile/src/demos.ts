@@ -2,6 +2,9 @@ import { Directory, File, Paths } from "expo-file-system";
 import type { ImageSourcePropType } from "react-native";
 import { getExercise } from "@/lib/exercises";
 import { BUNDLED_DEMOS } from "./demoImages";
+import { freshSession } from "./store";
+
+const APP_URL = "https://nicholasfit.vercel.app";
 
 /**
  * Exercise demo photos that work in the garage with no signal. The core exercises ship inside the
@@ -34,5 +37,25 @@ export async function saveDemosForOffline(ids: string[]): Promise<void> {
     } catch {
       // No signal: the sheet shows the written cues and tries the download again next workout.
     }
+  }
+}
+
+export type DemoVideo = { url: string; name: string };
+
+/**
+ * Asks the website for a short ExerciseDB demo clip. Needs signal; returns null when offline, when
+ * ExerciseDB has no match, or when videos aren't set up. Not saved: ExerciseDB's terms forbid it.
+ */
+export async function fetchDemoVideo(id: string): Promise<DemoVideo | null> {
+  try {
+    const s = await freshSession();
+    const res = await fetch(`${APP_URL}/api/exercise-video?id=${encodeURIComponent(id)}`, {
+      headers: s ? { Authorization: `Bearer ${s.accessToken}` } : {},
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return null;
+    return ((await res.json()) as { video: DemoVideo | null }).video;
+  } catch {
+    return null;
   }
 }
