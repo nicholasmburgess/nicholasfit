@@ -14,7 +14,7 @@ export default async function StretchPage({ params }: { params: Promise<{ id: st
   const inRoutines = ROUTINES.filter((r) => r.steps.some((x) => x.id === s.id));
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 md:mx-auto md:max-w-2xl">
       <Link href="/flexibility" className="inline-block pt-2 text-sm text-accent">
         ‹ Flexibility
       </Link>

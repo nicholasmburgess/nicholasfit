@@ -466,6 +466,6 @@ const styles = StyleSheet.create({
   button: { marginTop: 8, borderWidth: 1, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
   primary: { height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   scrim: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)" },
-  sheet: { paddingHorizontal: 20, paddingTop: 10, gap: 12, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  sheet: { width: "100%", maxWidth: 640, alignSelf: "center", paddingHorizontal: 20, paddingTop: 10, gap: 12, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
   grabber: { alignSelf: "center", width: 36, height: 5, borderRadius: 3, opacity: 0.4, marginBottom: 6 },
 });

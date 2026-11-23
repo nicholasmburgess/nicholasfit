@@ -48,7 +48,7 @@ export default function ProgressPage() {
   ];
 
   return (
-    <main className="space-y-4">
+    <main className="page-cols space-y-4">
       <header className="pt-2">
         <h1 className="text-2xl font-bold">Progress</h1>
         <p className="text-sm text-muted">Everything since you started</p>

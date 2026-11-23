@@ -41,14 +41,14 @@ export function FlexHome() {
   const monthMins = Math.round(data.sessions.filter((s) => daysSince(s.at)! < 30).reduce((t, s) => t + s.seconds, 0) / 60);
 
   return (
-    <main className="space-y-5">
+    <main className="page-cols space-y-5">
       <header className="pt-2">
         <h1 className="text-2xl font-bold">Flexibility</h1>
         <p className="text-sm text-muted">Stretch whenever suits you. Every minute counts, and Claude keeps track of how you&apos;re going.</p>
       </header>
 
       {loaded && data.sessions.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 text-center">
+        <div className="grid grid-cols-2 gap-2 text-center span-all">
           <Card className="!p-3">
             <p className="text-xl font-bold tabular-nums">{ago === 0 ? "Today" : ago === 1 ? "Yesterday" : `${ago} days`}</p>
             <p className="text-xs text-muted">{ago != null && ago > 1 ? "since last stretch" : "last stretch"}</p>
@@ -136,12 +136,12 @@ export function FlexHome() {
         </Card>
       )}
 
-      <section>
+      <section className="span-all">
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">All stretches</h2>
         {AREAS.map((a) => (
           <div key={a} className="mb-4">
             <h3 className="mb-2 text-sm font-semibold">{a}</h3>
-            <ul className="grid grid-cols-2 gap-2">
+            <ul className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
               {STRETCHES.filter((s) => s.area === a).map((s) => (
                 <li key={s.id}>
                   <Link href={`/flexibility/stretch/${s.id}`} className="block overflow-hidden rounded-xl border border-line bg-card">
@@ -252,7 +252,7 @@ function ReviewCard({ data, onData }: { data: FlexData; onData: (d: FlexData) =>
 
 function Evidence() {
   return (
-    <details className="rounded-2xl border border-line bg-card p-4 text-sm">
+    <details className="span-all rounded-2xl border border-line bg-card p-4 text-sm">
       <summary className="font-semibold">How this is set up</summary>
       <ul className="mt-2 list-disc space-y-1.5 pl-5">
         <li>Range of motion grows with total stretching time. About 5 minutes per area each week, over several days, gives the biggest gains. Do it whenever suits you; it all adds up.</li>

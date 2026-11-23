@@ -222,7 +222,7 @@ export default function WorkoutPage() {
   const editingEx = editingEntry ? getExercise(editingEntry.exerciseId) : undefined;
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 md:mx-auto md:max-w-2xl">
       <header className="sticky top-0 z-10 -mx-4 flex items-start justify-between gap-3 border-b border-line bg-bg/95 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur">
         <div>
           <h1 className="text-2xl font-bold">{w.name}</h1>
