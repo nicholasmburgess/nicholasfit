@@ -71,6 +71,16 @@ export default function FoodPage() {
     load();
   }, [load]);
 
+  // Opened from the iPhone widget's "Log food" (/food?log=1): jump to the logger, ready to type.
+  const ready = meals !== null && profile !== undefined;
+  useEffect(() => {
+    if (!ready || new URLSearchParams(window.location.search).get("log") !== "1") return;
+    window.history.replaceState(null, "", "/food");
+    const el = document.getElementById("log-meal");
+    el?.scrollIntoView({ block: "start" });
+    el?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+  }, [ready]);
+
   // Keep the widget's copy of today's targets current.
   useEffect(() => {
     if (!profile) return;
@@ -172,7 +182,9 @@ export default function FoodPage() {
         </Card>
       )}
 
-      <MealLogger key={offset} eatenAt={eatenAt} recent={recent} onSave={(m) => run(() => foodStore.saveMeal(m))} />
+      <div id="log-meal" className="scroll-mt-4">
+        <MealLogger key={offset} eatenAt={eatenAt} recent={recent} onSave={(m) => run(() => foodStore.saveMeal(m))} />
+      </div>
 
       <section>
         <h2 className="mb-2 font-semibold">Meals</h2>

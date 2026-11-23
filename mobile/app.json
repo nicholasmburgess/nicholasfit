@@ -69,6 +69,19 @@
                 "initialLayout": "./widgets/Today.tsx"
               },
               "android": null
+            },
+            {
+              "name": "Rings",
+              "displayName": "Nutrition rings",
+              "description": "Calorie and protein rings, with Log food and Start workout.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ],
+                "initialLayout": "./widgets/Rings.tsx"
+              },
+              "android": null
             }
           ]
         }

@@ -11,6 +11,7 @@ The iPhone app shows the normal Nicholasfit site inside it, so every feature (an
 - **Workouts saved to Apple Health** when you tap Finish, with the strap's heart rate.
 - The screen stays awake during a workout.
 - **Widgets**: a *Nicholasfit* widget for the Home Screen (small or medium) and the Lock Screen (circle, rectangle or one line) showing your next workout, calories left, protein, weight trend and sessions this week. Tap it to open the app.
+- **Nutrition rings widget**: calorie and protein rings. The small one opens food logging when tapped; the medium one has **Log food** and **Start workout** buttons.
 - **Rest timer on the Lock Screen and Dynamic Island** during a workout, counting down even with the phone asleep, with what's up next.
 
 You install it from your Mac with a free Apple account. A free install lasts **7 days**; after that the app won't open until you reinstall it from the Mac (2 minutes, your data is kept). Paying for the Apple Developer Program (US$99/year) makes an install last a year.
@@ -74,7 +75,7 @@ npm run setup
 4. Start a workout with your Polar strap on (wet the strap's contacts). Allow Bluetooth when asked. Your heart rate appears under the workout title. If the Polar app is open and connected to the strap, close it first.
 
 ### 7. Add the widgets
-- **Home Screen**: touch and hold an empty spot until the icons wiggle, tap **Edit** (top left) → **Add Widget**, search **Nicholasfit**, swipe to the size you want, tap **Add Widget**, then **Done**.
+- **Home Screen**: touch and hold an empty spot until the icons wiggle, tap **Edit** (top left) → **Add Widget**, search **Nicholasfit**, swipe through the choices (*Nicholasfit* in small or medium, *Nutrition rings* in small or medium), tap **Add Widget**, then **Done**.
 - **Lock Screen**: touch and hold the Lock Screen, tap **Customize** → **Lock Screen**, tap the row of widgets under the clock, choose **Nicholasfit** and tap the circle or rectangle. Tap **Done**.
 - The rest timer appears on its own when you rest during a workout. If it doesn't, check **Settings → Nicholasfit → Live Activities** is on.
 

@@ -10,7 +10,7 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { authorize, healthAvailable, readHealth, saveStrengthWorkout } from "./src/health";
 import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
-import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
+import { type Session, activeWorkout, deleteRemote, getSnapshot, localFinished, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
 import { WorkoutScreen } from "./src/WorkoutScreen";
 import { endAllRests } from "./src/restActivity";
 import { refreshWidget } from "./src/widgetData";
@@ -153,6 +153,30 @@ function Shell() {
     activeWorkout().then((w) => w && openWorkout(w));
   }, [openWorkout]);
 
+  // Widget buttons: nicholasfit://log-food and nicholasfit://start-workout.
+  const pendingFood = useRef(false);
+  const openFood = useCallback(() => {
+    if (!webReady.current) {
+      pendingFood.current = true;
+      return;
+    }
+    web.current?.injectJavaScript(`window.location.assign(${JSON.stringify(`${APP_URL}/food?log=1`)}); true;`);
+  }, []);
+  const startNext = useCallback(async () => {
+    const snap = await getSnapshot();
+    startWorkout(nextRoutineKey([...(await localFinished()), ...(snap?.history ?? [])]));
+  }, [startWorkout]);
+  useEffect(() => {
+    const handle = (url?: string | null) => {
+      const action = url?.match(/^nicholasfit:\/\/([\w-]+)/)?.[1];
+      if (action === "log-food") openFood();
+      else if (action === "start-workout") startNext();
+    };
+    Linking.getInitialURL().then(handle).catch(() => {});
+    const sub = Linking.addEventListener("url", (e) => handle(e.url));
+    return () => sub.remove();
+  }, [openFood, startNext]);
+
   // A rest timer left on the Lock Screen by a closed app is cleared; the widget gets fresh numbers.
   useEffect(() => {
     endAllRests();
@@ -171,6 +195,10 @@ function Shell() {
         case "hello":
           webReady.current = true;
           send({ type: "native", version: BRIDGE_VERSION, health: healthAvailable(), bluetooth: true });
+          if (pendingFood.current) {
+            pendingFood.current = false;
+            openFood();
+          }
           break;
         case "session":
           await saveSession(msg.session);
@@ -206,7 +234,7 @@ function Shell() {
           break;
       }
     },
-    [send, syncHealth, startHr, stopHr, saveToHealth, startWorkout, openWorkout],
+    [send, syncHealth, startHr, stopHr, saveToHealth, startWorkout, openWorkout, openFood],
   );
 
   // Tell the page whenever the app comes back to the front so it can refresh (and re-sync Health).

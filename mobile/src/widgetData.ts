@@ -4,11 +4,12 @@ import { startOfWeek } from "@/lib/format";
 import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
 import { nextRoutineKey } from "@/lib/progression";
 import { WEEKLY_GOAL } from "@/lib/stats";
+import RingsWidget from "../widgets/Rings";
 import TodayWidget, { type TodayProps } from "../widgets/Today";
 import { freshSession, getSnapshot, localFinished } from "./store";
 
 /**
- * Fills the Home Screen / Lock Screen widget. Runs when the app opens, goes to the background
+ * Fills the Home Screen / Lock Screen widgets (Today and Nutrition rings). Runs when the app opens, goes to the background
  * (e.g. after logging a meal) and after a workout. Workout info comes from the plan and history
  * on the phone; calories, protein and weight come from the database with the app's sign-in.
  * With no signal it keeps the last numbers it had.
@@ -110,10 +111,12 @@ export function refreshWidget(): void {
     try {
       const { today, tomorrow, midnight } = await build(new Date());
       // Show today's numbers now, and reset calories at midnight even if the app isn't opened.
-      TodayWidget.updateTimeline([
+      const entries = [
         { date: new Date(), props: today },
         { date: midnight, props: tomorrow },
-      ]);
+      ];
+      TodayWidget.updateTimeline(entries);
+      RingsWidget.updateTimeline(entries);
     } catch {
       // The widget keeps what it showed last.
     }
