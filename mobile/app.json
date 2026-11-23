@@ -73,11 +73,10 @@
             {
               "name": "Rings",
               "displayName": "Nutrition rings",
-              "description": "Calorie and protein rings, with Log food and Start workout.",
+              "description": "Calorie and protein rings. Tap to log food or start a workout.",
               "ios": {
                 "supportedFamilies": [
-                  "systemSmall",
-                  "systemMedium"
+                  "systemSmall"
                 ],
                 "initialLayout": "./widgets/Rings.tsx"
               },

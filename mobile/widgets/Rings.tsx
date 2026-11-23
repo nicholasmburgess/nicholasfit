@@ -1,13 +1,12 @@
-import { Chart, HStack, Image, Link, Spacer, Text, VStack, ZStack } from "@expo/ui/swift-ui";
-import { background, containerBackground, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, monospacedDigit, shapes, widgetURL } from "@expo/ui/swift-ui/modifiers";
+import { Chart, HStack, Spacer, Text, VStack, ZStack } from "@expo/ui/swift-ui";
+import { containerBackground, font, foregroundStyle, frame, lineLimit, minimumScaleFactor, monospacedDigit, widgetURL } from "@expo/ui/swift-ui/modifiers";
 import { createWidget, type WidgetEnvironment } from "expo-widgets";
 import type { TodayProps } from "./Today";
 
 /**
- * The "Nutrition" widget: calorie and protein rings.
- * - Small (2x2): rings; a tap opens food logging (iOS makes a small widget one tap target).
- * - Medium (4x2): rings plus Log food and Start workout buttons.
- * Self-contained like every widget layout (see Today.tsx). Same numbers as the Today widget.
+ * The "Nutrition rings" widget (2x2): calorie ring outside, protein ring inside. A tap opens
+ * the app's quick chooser (Log food / Start workout). Self-contained like every widget layout
+ * (see Today.tsx); the app sends it the same numbers as the Today widget.
  */
 const Rings = (p: TodayProps, env: WidgetEnvironment) => {
   "widget";
@@ -19,7 +18,6 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
   const muted = dark ? "#8f9b93" : "#66706b";
   const track = dark ? "#24302a" : "#e6ebe8";
   const bg = dark ? "#0a0f0c" : "#ffffff";
-  const family = env.widgetFamily ?? "systemSmall";
 
   const num = (n: number) => String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const frac = (v: number, t: number | null) => (t ? Math.max(0, Math.min(1, v / t)) : 0);
@@ -51,7 +49,9 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
   const kcalStat = (size: number) =>
     stat(kcalLeft == null ? num(p.kcal) : num(kcalLeft), kcalLeft == null ? "kcal eaten" : kcalOver ? "kcal over" : "kcal left", kcalOver ? amber : green, size);
   const proteinStat = (size: number) =>
-    stat(`${num(proteinLeft == null ? p.protein : Math.max(0, proteinLeft))} g`, proteinLeft == null ? "protein" : proteinLeft <= 0 ? "protein, done" : "protein left", protein, size);
+    proteinLeft == null || proteinLeft <= 0
+      ? stat(`${num(p.protein)} g`, proteinLeft == null ? "protein" : "protein ✓", protein, size)
+      : stat(`${num(proteinLeft)} g`, "protein left", protein, size);
   const background_ = containerBackground(bg, "widget");
 
   if (!p.ready) {
@@ -64,47 +64,17 @@ const Rings = (p: TodayProps, env: WidgetEnvironment) => {
     );
   }
 
-  if (family === "systemMedium") {
-    const button = (url: string, icon: "plus" | "play.fill", label: string, filled: boolean) => (
-      <Link destination={url}>
-        <HStack spacing={6} modifiers={[frame({ maxWidth: 1000, minHeight: 44 }), background(filled ? green : track, shapes.capsule())]}>
-          <Image systemName={icon} modifiers={[font({ size: 14, weight: "bold" }), foregroundStyle(filled ? bg : ink)]} />
-          <Text modifiers={[font({ size: 15, weight: "semibold" }), foregroundStyle(filled ? bg : ink), lineLimit(1), minimumScaleFactor(0.7)]}>{label}</Text>
-        </HStack>
-      </Link>
-    );
-    return (
-      <HStack spacing={14} modifiers={[background_, widgetURL("nicholasfit://")]}>
-        {rings(112)}
-        <VStack alignment="leading" spacing={10}>
-          {kcalStat(24)}
-          {proteinStat(17)}
-        </VStack>
-        <VStack spacing={10} modifiers={[frame({ width: 116 })]}>
-          {button("nicholasfit://log-food", "plus", "Log food", true)}
-          {button("nicholasfit://start-workout", "play.fill", p.trainedToday ? "Workout" : (p.workout ?? "Workout"), false)}
-        </VStack>
-      </HStack>
-    );
-  }
-
-  // systemSmall: the whole widget opens food logging.
+  // The whole widget opens a quick chooser in the app: Log food or Start workout.
+  // (iOS makes a small widget a single tap target, so the buttons live in the app.)
   return (
-    <VStack spacing={8} modifiers={[background_, widgetURL("nicholasfit://log-food")]}>
-      <HStack spacing={10}>
-        {rings(72)}
-        <VStack alignment="leading" spacing={6}>
-          {kcalStat(19)}
-          {proteinStat(15)}
-        </VStack>
-        <Spacer />
-      </HStack>
+    <HStack spacing={10} modifiers={[background_, widgetURL("nicholasfit://quick")]}>
+      {rings(76)}
+      <VStack alignment="leading" spacing={8}>
+        {kcalStat(19)}
+        {proteinStat(15)}
+      </VStack>
       <Spacer />
-      <HStack spacing={5} modifiers={[frame({ maxWidth: 1000, minHeight: 34 }), background(green, shapes.capsule())]}>
-        <Image systemName="plus" modifiers={[font({ size: 13, weight: "bold" }), foregroundStyle(bg)]} />
-        <Text modifiers={[font({ size: 14, weight: "semibold" }), foregroundStyle(bg)]}>Log food</Text>
-      </HStack>
-    </VStack>
+    </HStack>
   );
 };
 
