@@ -5,7 +5,13 @@ import { usePathname } from "next/navigation";
 
 const ICONS: Record<string, React.ReactNode> = {
   Today: <path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" />,
-  Progress: <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />,
+  Progress: (
+    <>
+      <rect x="4" y="13" width="4" height="7" rx="1.5" />
+      <rect x="10" y="9" width="4" height="11" rx="1.5" />
+      <rect x="16" y="4" width="4" height="16" rx="1.5" />
+    </>
+  ),
   Food: <path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10M16 3c-2 2-2 6 0 8v10" />,
   Workout: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
   Row: (
