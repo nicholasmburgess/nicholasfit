@@ -11,7 +11,7 @@ export default function ExercisesPage() {
       {PATTERNS.map((p) => (
         <section key={p}>
           <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{p}</h2>
-          <ul className="grid grid-cols-2 gap-2">
+          <ul className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
             {EXERCISES.filter((e) => e.pattern === p).map((e) => (
               <li key={e.id}>
                 <Link href={`/exercises/${e.id}`} className="block overflow-hidden rounded-xl border border-line bg-card">

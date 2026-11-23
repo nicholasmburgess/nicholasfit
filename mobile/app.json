@@ -14,7 +14,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.nicholasmburgess.nicholasfit",
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Nicholasfit uses the camera to photograph meals and scan barcodes.",
         "NSPhotoLibraryUsageDescription": "Nicholasfit lets you pick a meal photo to estimate calories.",

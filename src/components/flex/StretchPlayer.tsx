@@ -58,7 +58,7 @@ export function StretchPlayer({ routine }: { routine: Routine }) {
 
   const blocks = blocksFor(routine, level);
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 md:mx-auto md:max-w-2xl">
       <Link href="/flexibility" className="inline-block pt-2 text-sm text-accent">
         ‹ Flexibility
       </Link>
@@ -235,7 +235,7 @@ function Timer({ routine, level, onExit, onDone }: { routine: Routine; level: nu
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-bg pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4">
+      <div className="mx-auto flex w-full max-w-md flex-1 flex-col px-4 md:max-w-xl md:landscape:max-w-5xl md:landscape:px-8">
         <div className="flex items-center gap-3">
           <button onClick={() => onExit(partial())} className="h-11 rounded-xl px-1 text-base font-medium text-muted">
             End
@@ -248,6 +248,7 @@ function Timer({ routine, level, onExit, onDone }: { routine: Routine; level: nu
           </span>
         </div>
 
+        <div className="flex flex-1 flex-col md:landscape:grid md:landscape:grid-cols-2 md:landscape:items-center md:landscape:gap-10">
         <div className="relative mt-3">
           {video ? <StretchVideo id={b.id} onFail={() => setVideo(false)} /> : <ExerciseDemo images={st.images} name={st.name} />}
           <button onClick={() => setVideo(!video)} className="absolute right-2 top-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white">
@@ -255,6 +256,7 @@ function Timer({ routine, level, onExit, onDone }: { routine: Routine; level: nu
           </button>
         </div>
 
+        <div className="flex flex-1 flex-col md:landscape:flex-none">
         <div className="mt-4 text-center">
           <p className="text-sm font-semibold uppercase tracking-wide text-accent">{s.kind === "prep" ? (b.first ? "Get ready" : "Switch sides") : (sideLabel ?? (st.kind === "move" ? "Keep moving" : "Hold"))}</p>
           <h1 className="mt-1 text-2xl font-bold leading-tight">{st.name}</h1>
@@ -285,6 +287,8 @@ function Timer({ routine, level, onExit, onDone }: { routine: Routine; level: nu
             +15 s, I want to stay here
           </button>
         )}
+        </div>
+        </div>
       </div>
     </div>
   );
@@ -294,7 +298,7 @@ function Ring({ frac, prep, children }: { frac: number; prep: boolean; children:
   const r = 70;
   const c = 2 * Math.PI * r;
   return (
-    <div className="relative grid h-44 w-44 place-items-center">
+    <div className="relative grid h-44 w-44 place-items-center md:h-56 md:w-56">
       <svg viewBox="0 0 160 160" className="absolute inset-0 -rotate-90">
         <circle cx="80" cy="80" r={r} fill="none" stroke="var(--card-2)" strokeWidth="10" />
         <circle
@@ -332,7 +336,7 @@ function Done({ routine, sessionId }: { routine: Routine; sessionId: string | nu
   }
 
   return (
-    <main className="space-y-5 pt-10 text-center">
+    <main className="space-y-5 pt-10 text-center md:mx-auto md:max-w-xl">
       <p className="text-5xl" aria-hidden>
         ✓
       </p>

@@ -49,7 +49,7 @@ export default function Home() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="page-cols space-y-4">
       <header className="pt-2">
         <p className="text-sm text-muted">{new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}</p>
         <h1 className="text-2xl font-bold">Today</h1>

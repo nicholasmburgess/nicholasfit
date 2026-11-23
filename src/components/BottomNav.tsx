@@ -36,7 +36,7 @@ export function BottomNav() {
   if (path.startsWith("/login")) return null;
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur">
-      <div className="mx-auto flex max-w-md">
+      <div className="mx-auto flex max-w-md md:max-w-xl">
         {TABS.map((t) => {
           const on = t.match(path);
           return (

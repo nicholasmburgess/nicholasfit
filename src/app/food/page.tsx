@@ -116,7 +116,7 @@ export default function FoodPage() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="page-cols space-y-4">
       <header className="flex items-end justify-between pt-2">
         <div>
           <h1 className="text-2xl font-bold">Food</h1>

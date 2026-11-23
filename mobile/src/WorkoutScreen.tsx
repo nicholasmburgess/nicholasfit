@@ -2,7 +2,7 @@ import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
@@ -64,6 +64,7 @@ export function WorkoutScreen({
 }) {
   useKeepAwake("workout");
   const c = useTheme();
+  const gutter = useGutter();
   const [w, setW] = useState(initial);
   const [rest, setRest] = useState<Rest | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -202,7 +203,7 @@ export function WorkoutScreen({
 
   return (
     <SafeAreaView style={[s.fill, { backgroundColor: c.bg }]} edges={["top"]}>
-      <View style={[s.header, { borderColor: c.line, backgroundColor: c.bg }]}>
+      <View style={[s.header, { borderColor: c.line, backgroundColor: c.bg, paddingHorizontal: gutter }]}>
         <View style={{ flex: 1 }}>
           <Text style={[s.h1, { color: c.text }]} numberOfLines={1}>
             {w.name}
@@ -217,7 +218,7 @@ export function WorkoutScreen({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: rest ? 140 : 48 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: 16, paddingHorizontal: gutter, gap: 14, paddingBottom: rest ? 140 : 48 }} keyboardShouldPersistTaps="handled">
         {setups.length > 0 && (
           <Text style={[s.small, { color: setups.length > MAX_ADJUSTABLE_SETUPS ? c.warn : c.muted }]}>
             Dumbbell/kettlebell set-ups: {setups.length} of {MAX_ADJUSTABLE_SETUPS}
@@ -527,6 +528,7 @@ function EntryCard({
 function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; rest: Rest; workout: Workout; onAdd: (sec: number) => void; onFeel: (f: Feel) => void; onDone: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [small, setSmall] = useState(false);
+  const gutter = useGutter();
   const buzzed = useRef(false);
   useEffect(() => {
     buzzed.current = false;
@@ -552,7 +554,7 @@ function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; re
 
   if (small)
     return (
-      <Pressable onPress={() => setSmall(false)} style={[s.mini, { backgroundColor: c.card, borderColor: c.line }]}>
+      <Pressable onPress={() => setSmall(false)} style={[s.mini, { backgroundColor: c.card, borderColor: c.line, left: gutter - 4, right: gutter - 4 }]}>
         <View style={[s.bar, { backgroundColor: c.card2 }]}>
           <View style={{ width: `${pct * 100}%`, height: "100%", backgroundColor: c.accent }} />
         </View>
@@ -571,7 +573,7 @@ function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; re
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onDone}>
       <SafeAreaView style={[s.fill, { backgroundColor: c.hero }]}>
-        <View style={{ flex: 1, padding: 24, justifyContent: "space-between" }}>
+        <View style={{ flex: 1, padding: 24, justifyContent: "space-between", width: "100%", maxWidth: 640, alignSelf: "center" }}>
           <View style={[s.row, { justifyContent: "space-between" }]}>
             <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 16, fontWeight: "600" }}>{left === 0 ? "Rest done" : "Rest"}</Text>
             <Pressable onPress={() => setSmall(true)} hitSlop={12}>
@@ -704,6 +706,15 @@ function SetSheet({ c, workout, editing, onDone, onClose }: { c: Theme; workout:
   );
 }
 
+/** Widest the workout column gets: on iPad the sets stay one easy-to-read column in the middle. */
+const COLUMN = 760;
+
+/** Side padding that keeps content in a centred column on iPad (and follows rotation). */
+export function useGutter() {
+  const { width } = useWindowDimensions();
+  return Math.max(16, Math.round((width - COLUMN) / 2));
+}
+
 const s = StyleSheet.create({
   fill: { flex: 1 },
   header: { flexDirection: "row", alignItems: "flex-start", gap: 12, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
@@ -731,7 +742,7 @@ const s = StyleSheet.create({
   heroBtnText: { color: "#fff", fontSize: 18, fontWeight: "700" },
   bigBtn: { height: 60, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   scrim: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
-  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: StyleSheet.hairlineWidth, padding: 20, paddingBottom: 36 },
+  sheet: { width: "100%", maxWidth: 640, alignSelf: "center", borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: StyleSheet.hairlineWidth, padding: 20, paddingBottom: 36 },
   grabber: { alignSelf: "center", width: 40, height: 4, borderRadius: 2, marginBottom: 12 },
   step: { flex: 1, height: 60, borderRadius: 14, borderWidth: 1, alignItems: "center", justifyContent: "center" },
 });

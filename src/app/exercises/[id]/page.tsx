@@ -14,7 +14,7 @@ export default async function ExercisePage({ params }: { params: Promise<{ id: s
   if (!ex) notFound();
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 md:mx-auto md:max-w-2xl">
       <Link href="/exercises" className="inline-block pt-2 text-sm text-accent">
         ‹ Exercises
       </Link>

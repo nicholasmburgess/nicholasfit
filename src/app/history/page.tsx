@@ -30,7 +30,7 @@ export default function HistoryPage() {
   }
 
   return (
-    <main className="space-y-4">
+    <main className="space-y-4 md:mx-auto md:max-w-3xl">
       <h1 className="pt-2 text-2xl font-bold">History</h1>
       {error && <p className="rounded-lg bg-danger/10 p-3 text-sm text-danger">{error}</p>}
       {finished.length === 0 && <p className="text-sm text-muted">Finished workouts will show up here.</p>}
@@ -52,7 +52,7 @@ export default function HistoryPage() {
           <h2 className="mb-2 text-sm font-semibold text-muted">
             {month} · {ws.length} {ws.length === 1 ? "workout" : "workouts"}
           </h2>
-          <ul className="space-y-2">
+          <ul className="space-y-2 md:grid md:grid-cols-2 md:gap-2 md:space-y-0">
             {ws.map((w) => (
               <li key={w.id}>
                 <Link href={`/workout/${w.id}`} className="flex items-center justify-between rounded-xl border border-line bg-card px-4 py-3">
