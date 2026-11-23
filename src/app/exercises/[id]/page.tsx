@@ -25,7 +25,7 @@ export default async function ExercisePage({ params }: { params: Promise<{ id: s
         </p>
       </header>
 
-      <ExerciseDemo images={ex.images} name={ex.name} />
+      <ExerciseDemo images={ex.images} name={ex.name} videoId={ex.id} />
 
       <section className="rounded-2xl border border-line bg-card p-4">
         <h2 className="mb-2 font-semibold">Form cues</h2>
