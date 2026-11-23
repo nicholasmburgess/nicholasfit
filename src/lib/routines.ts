@@ -40,19 +40,19 @@ export const ROUTINES: Routine[] = [
   // Guided harder rows (see row-sessions.ts). One a week, on a day without lifting.
   {
     key: "ROW_TEMPO",
-    name: "Tempo row 3 × 6",
+    name: "Tempo 3 × 6",
     summary: "Concept2: 3 × 6 min comfortably hard, 2 min easy",
     items: [{ exerciseId: "Rowing_Stationary", target: t(1, 26, 26, 0) }],
   },
   {
     key: "ROW_1MIN",
-    name: "Row intervals 8 × 1",
+    name: "1-minute intervals",
     summary: "Concept2: 8 × 1 min hard, 1 min easy",
     items: [{ exerciseId: "Rowing_Stationary", target: t(1, 25, 25, 0) }],
   },
   {
     key: "ROW_4X4",
-    name: "Row 4 × 4",
+    name: "4 × 4 row",
     summary: "Concept2: 4 × 4 min very hard, 3 min easy",
     items: [{ exerciseId: "Rowing_Stationary", target: t(1, 38, 38, 0) }],
   },

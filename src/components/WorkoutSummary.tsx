@@ -5,6 +5,7 @@ import { formatDuration } from "@/lib/format";
 import { doneSetCount, volumeKg } from "@/lib/progression";
 import { formatMetres, rowLine, workoutRows } from "@/lib/row";
 import { personalRecords, volumeChange } from "@/lib/summary";
+import { RowReviewCard } from "./RowReviewCard";
 import type { Workout } from "@/lib/types";
 
 export function WorkoutSummary({ workout, history }: { workout: Workout; history: Workout[] }) {
@@ -38,6 +39,11 @@ export function WorkoutSummary({ workout, history }: { workout: Workout; history
             <li key={r.startedAt}>Row · {rowLine(r)}</li>
           ))}
         </ul>
+      )}
+      {rows.some((r) => r.session) && (
+        <div className="mt-3">
+          <RowReviewCard workout={workout} history={history} />
+        </div>
       )}
       {change !== null && (
         <p className="mt-3 text-sm">

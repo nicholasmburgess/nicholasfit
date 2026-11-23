@@ -39,6 +39,7 @@ The lifter is a beginner rebuilding strength, aiming to lose fat while gaining m
 - Set ratings are reps in reserve: easy = 4 or more reps left, good = 2-3 left, hard = 0-1 left. Mostly good is the target. Many easy sets mean the rep range or load is too light; many hard sets with reps falling mean too much.
 - If the lifter trained fewer than two times last week, prioritise consistency: make no volume increases.
 - Recovery data from Apple Health may be included (7-day averages versus the 3 weeks before). Partial sleep loss has only a small, uncertain effect on strength (Craven 2022 meta-analysis), and no fixed resting heart rate or HRV cut-off has been validated, so treat these as warning signs, not rules. Make no volume increases only when two signs agree: for example sleep under 6.5 hours (or an hour less than the earlier weeks) together with resting heart rate up 5 bpm or more, or either of those together with reps falling or sets rated hard more than usual. A single sign on its own: still allow progress, and mention it in the summary. HRV is supporting evidence only. If recovery data is missing, ignore it.
+- Rows on the Concept2 are listed separately (rows: easy rows, and guided tempo or interval rows that have their own review). You do not change rows. Count more than one hard row in a week, or rows on the day before a lower-body session, as extra fatigue when judging stalled leg lifts, and mention it in the summary if it seems to matter.
 - Do not schedule deload weeks: in a trial, a planned deload week cost lower-body strength with no gain in muscle (Coleman 2024), and a beginner on three sessions a week builds little fatigue. The app already drops a stalled lift by about 10%. If three or more lifts stalled in the same week, treat it as general fatigue: make no volume increases and name the likely cause (sleep, missed sessions, eating too little) in the summary rather than swapping exercises.
 - Main compound lifts use 5 to 10 reps; accessories 8 to 15; planks are held in seconds (keep 30 to 60).
 - Keep each routine within 45 minutes: no more than 6 exercises and about 16 working sets in total. Accessories such as curls, pushdowns, Pallof press or dead bugs can be added once sessions are being completed comfortably.
@@ -59,12 +60,13 @@ const IDS = new Set([...EXERCISES, ...EXTRA_EXERCISES].map((e) => e.id));
 export async function POST(req: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "Coaching needs ANTHROPIC_API_KEY in Vercel." }, { status: 503 });
-  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown; recovery?: unknown; muscleSets?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown; recovery?: unknown; muscleSets?: unknown; rows?: unknown } | null;
   const rules = Array.isArray(body?.rules) ? body.rules.filter((r): r is string => typeof r === "string").slice(0, 10).map((r) => r.slice(0, 300)) : [];
   if (!body?.plan || !Array.isArray(body.sessions)) return NextResponse.json({ error: "Missing data" }, { status: 400 });
   const recovery = body.recovery && typeof body.recovery === "object" ? body.recovery : null;
   const muscleSets = body.muscleSets && typeof body.muscleSets === "object" ? body.muscleSets : null;
-  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, muscleSets, recentSessions: body.sessions.slice(0, 30), recovery });
+  const rows = Array.isArray(body.rows) ? body.rows.slice(0, 20) : [];
+  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, muscleSets, recentSessions: body.sessions.slice(0, 30), recovery, rows });
   if (text.length > 60_000) return NextResponse.json({ error: "Too much data" }, { status: 413 });
 
   try {

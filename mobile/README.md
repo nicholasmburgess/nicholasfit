@@ -81,6 +81,13 @@ npm run setup
 3. Choose a workout on the PM5 as usual (Just Row is fine) and start rowing. The live view opens by itself. **Show sets** goes back to the workout; **Live view** on the rowing card returns.
 4. When you're done, end the piece on the PM5 (press **Menu**). The row is logged and ticked. Tap **Finish workout**.
 
+### Harder rows (Row tab)
+The **Row** tab lists Easy row, **Tempo 3 × 6**, **1-minute intervals** and **4 × 4** (unlocks after three harder rows). Each shows the split to aim for in the hard parts.
+1. Start one, set the PM5 to **Just Row**, and row. The phone times every part from the PM5's clock: a banner counts down, buzzes 3-2-1 before each hard rep, and the heart-rate guide shows the zone to aim for. Keep rowing gently in the easy parts.
+2. When the last part ends, the row is logged with every rep's split, rate, watts and peak heart rate. Tap **Finish workout**.
+3. Claude reviews it (on the finish screen and the Row tab) and sets next time's target. If a hard rep goes above your estimated max heart rate, your zones switch to the real one.
+4. Before a harder row, if Apple Health shows two signs of poor recovery (short sleep, resting heart rate up, HRV down), the app suggests an easy row instead. You can row as planned.
+
 ### 7. Add the widgets
 - **Home Screen**: touch and hold an empty spot until the icons wiggle, tap **Edit** (top left) → **Add Widget**, search **Nicholasfit**, swipe through the choices (*Nicholasfit* in small or medium, then *Nutrition rings*), tap **Add Widget**, then **Done**.
 - **Lock Screen**: touch and hold the Lock Screen, tap **Customize** → **Lock Screen**, tap the row of widgets under the clock, choose **Nicholasfit** and tap the circle or rectangle. Tap **Done**.
