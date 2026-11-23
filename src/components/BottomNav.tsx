@@ -8,6 +8,7 @@ const ICONS: Record<string, React.ReactNode> = {
   Progress: <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />,
   Food: <path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10M16 3c-2 2-2 6 0 8v10" />,
   Workout: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
+  Row: <path d="M3 18h18M6 18l3-6h6l3 6M9 12l-3-5M15 12l4-6M12 9v3" />,
   Stretch: (
     <>
       <circle cx="15" cy="4.5" r="2" />
@@ -19,6 +20,7 @@ const ICONS: Record<string, React.ReactNode> = {
 const TABS = [
   { href: "/", label: "Today", match: (p: string) => p === "/" },
   { href: "/workouts", label: "Workout", match: (p: string) => p.startsWith("/workout") },
+  { href: "/row", label: "Row", match: (p: string) => p.startsWith("/row") },
   { href: "/progress", label: "Progress", match: (p: string) => p.startsWith("/progress") || p.startsWith("/exercises") },
   { href: "/food", label: "Food", match: (p: string) => p.startsWith("/food") },
   { href: "/flexibility", label: "Stretch", match: (p: string) => p.startsWith("/flexibility") },

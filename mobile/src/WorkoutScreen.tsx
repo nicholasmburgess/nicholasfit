@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import { useKeepAwake } from "expo-keep-awake";
 import * as Notifications from "expo-notifications";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable } from "@/lib/adjustable";
@@ -11,10 +11,16 @@ import { FEELS } from "@/lib/feel";
 import { applyFeel, exerciseHistory } from "@/lib/progression";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
-import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
+import { ROW_EXERCISE, formatSplit, rowLine } from "@/lib/row";
+import { getRowSession, readiness } from "@/lib/row-sessions";
+import type { Entry, Feel, RowPiece, SetLog, Workout } from "@/lib/types";
 import { DemoSheet } from "./DemoSheet";
 import { saveDemosForOffline } from "./demos";
-import type { HrUpdate } from "./heartRate";
+import type { HrSample, HrUpdate } from "./heartRate";
+import { Pm5Session, type Pm5Update } from "./pm5";
+import { RowOverlay, RowStatus, liveHeart } from "./RowLive";
+import { IntervalTracker, type IntervalState } from "./intervals";
+import { authorize, healthAvailable, readHealth } from "./health";
 import { endRest as endLockScreenRest, showRest } from "./restActivity";
 import { onSyncChange, pendingCount, saveWorkout } from "./store";
 
@@ -46,6 +52,8 @@ export function WorkoutScreen({
   initial,
   history,
   hr,
+  hrSamples,
+  maxHr,
   onFinish,
   onDiscard,
   onOpenWeb,
@@ -53,6 +61,10 @@ export function WorkoutScreen({
   initial: Workout;
   history: Workout[];
   hr: HrUpdate | null;
+  /** Heart rate recorded so far by the strap, for a row's average and max. */
+  hrSamples: () => HrSample[];
+  /** Max heart rate for the rowing screen's zones (measured, or estimated from the birth year). */
+  maxHr: number | null;
   onFinish: (w: Workout) => void;
   onDiscard: (w: Workout) => void;
   /** Swap, add or anything else the full website view does. */
@@ -68,6 +80,21 @@ export function WorkoutScreen({
   const [demo, setDemo] = useState<string | null>(null);
   const latest = useRef(w);
   const notif = useRef<string | null>(null);
+  const [pm5, setPm5] = useState<Pm5Update | null>(null);
+  const [rowOpen, setRowOpen] = useState(false);
+  const [savedRow, setSavedRow] = useState<RowPiece | null>(null);
+  const pm5Session = useRef<Pm5Session | null>(null);
+  const hasRow = w.entries.some((e) => e.exerciseId === ROW_EXERCISE);
+  // A guided row (tempo or intervals): the phone times each part from the PM5's clock.
+  const rowPlan = w.entries.find((e) => e.rowPlan)?.rowPlan ?? null;
+  const guidedSession = getRowSession(rowPlan?.session);
+  const tracker = useRef<IntervalTracker | null>(null);
+  if (guidedSession && tracker.current?.session.key !== guidedSession.key) tracker.current = new IntervalTracker(guidedSession);
+  if (!guidedSession) tracker.current = null;
+  const [iv, setIv] = useState<IntervalState | null>(null);
+  const hrRef = useRef(hr);
+  hrRef.current = hr;
+  const [recovery, setRecovery] = useState<string[] | null>(null);
 
   useEffect(() => {
     Notifications.requestPermissionsAsync().catch(() => {});
@@ -97,6 +124,140 @@ export function WorkoutScreen({
     return next;
   }, []);
   const updateEntry = (i: number, fn: (e: Entry) => Entry) => update((x) => ({ ...x, entries: x.entries.map((e, j) => (j === i ? fn(e) : e)) }));
+
+  /** Add the strap's average and max heart rate over the piece. */
+  const withHeart = (p: Omit<RowPiece, "avgHr" | "maxHr">): RowPiece => {
+    const from = Date.parse(p.startedAt);
+    const to = from + p.seconds * 1000;
+    const bpms = hrSamples()
+      .filter((x) => x.at >= from && x.at <= to)
+      .map((x) => x.bpm);
+    return { ...p, avgHr: bpms.length ? Math.round(bpms.reduce((a, b) => a + b, 0) / bpms.length) : null, maxHr: bpms.length ? Math.max(...bpms) : null };
+  };
+
+  /**
+   * Log a PM5 piece on the rowing exercise: the same piece updates the set it's already on (if it
+   * was ticked by hand mid-row), otherwise it fills the next unticked rowing set, or adds one.
+   */
+  const applyRow = useCallback((piece: RowPiece) => {
+    const minutes = Math.max(1, Math.round(piece.seconds / 60));
+    return update((x) => {
+      const rows = x.entries.map((e, i) => (e.exerciseId === ROW_EXERCISE ? i : -1)).filter((i) => i >= 0);
+      if (!rows.length) return x;
+      let target: { ei: number; si: number } | null = null;
+      for (const ei of rows) {
+        const si = x.entries[ei].sets.findIndex((st) => st.row?.startedAt === piece.startedAt);
+        if (si >= 0) target = { ei, si };
+      }
+      if (!target)
+        for (const ei of rows) {
+          const si = x.entries[ei].sets.findIndex((st) => !st.done);
+          if (si >= 0) {
+            target = { ei, si };
+            break;
+          }
+        }
+      const ei = target?.ei ?? rows[rows.length - 1];
+      return {
+        ...x,
+        entries: x.entries.map((e, i) => {
+          if (i !== ei) return e;
+          const set: SetLog = { weight: null, reps: minutes, done: true, row: piece };
+          return target ? { ...e, sets: e.sets.map((st, k) => (k === target!.si ? { ...st, ...set } : st)) } : { ...e, sets: [...e.sets, set] };
+        }),
+      };
+    });
+  }, [update]);
+
+  const onPiece = useRef<(p: Omit<RowPiece, "avgHr" | "maxHr">) => void>(() => {});
+  /** Heart rate plus, for a guided row, each hard rep and the target. */
+  const enrich = (p: Omit<RowPiece, "avgHr" | "maxHr">, final: boolean): RowPiece => {
+    const piece = withHeart(p);
+    const t = tracker.current;
+    if (!t || !rowPlan) return piece;
+    const bpm = liveHeart(hrRef.current, pm5Ref.current);
+    return { ...piece, session: rowPlan.session, targetSplitS: rowPlan.targetSplitS, reps: final ? t.finish(pm5Ref.current?.live ?? null, bpm) : [...t.reps] };
+  };
+  const pm5Ref = useRef<Pm5Update | null>(null);
+  onPiece.current = (p) => {
+    const piece = enrich(p, true);
+    applyRow(piece);
+    setSavedRow(piece);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+  };
+
+  // Connect to the Concept2 PM5 whenever this workout has rowing in it.
+  useEffect(() => {
+    if (!hasRow) return;
+    let wasActive = false;
+    const session = new Pm5Session(
+      (u) => {
+        setPm5(u);
+        pm5Ref.current = u;
+        const t = tracker.current;
+        if (t) {
+          const st = t.update(u.live, liveHeart(hrRef.current, u));
+          setIv((prev) => {
+            if (st && prev && st.index !== prev.index) {
+              // A new part: a strong buzz into a hard rep, a gentle one out of it.
+              Haptics.notificationAsync(st.seg.kind === "work" ? Haptics.NotificationFeedbackType.Warning : Haptics.NotificationFeedbackType.Success).catch(() => {});
+            } else if (st && st.next?.kind === "work" && st.left <= 3 && st.left >= 1 && st.left !== prev?.left) {
+              // 3-2-1 before a hard rep.
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+            }
+            return st;
+          });
+          // The last part is done: log the session (the PM5 can keep running).
+          if (st?.done) session.finishPiece();
+        }
+        const active = !!u.live?.active;
+        // The first stroke of a piece opens the live view.
+        if (active && !wasActive) {
+          setSavedRow(null);
+          setRowOpen(true);
+        }
+        wasActive = active;
+      },
+      (p) => onPiece.current(p),
+    );
+    pm5Session.current = session;
+    session.start();
+    return () => {
+      session.stop();
+      pm5Session.current = null;
+      setPm5(null);
+    };
+  }, [hasRow]);
+
+  // Before a harder row: check recovery in Apple Health (two signs must agree, like the weekly coach).
+  useEffect(() => {
+    if (!guidedSession || !healthAvailable()) return;
+    let gone = false;
+    authorize()
+      .then(() => readHealth(28))
+      .then(({ days }) => {
+        const r = readiness(days);
+        if (!gone && r.suggestEasy && !latest.current.entries.some((e) => e.sets.some((x) => x.done))) setRecovery(r.signs);
+      })
+      .catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, [guidedSession?.key]);
+
+  /** Turn this guided row into an easy row (recovery looked low). */
+  function swapToEasy() {
+    tap();
+    setRecovery(null);
+    update((x) => ({
+      ...x,
+      name: "Easy row",
+      templateKey: "ROW",
+      entries: x.entries.map((e) =>
+        e.rowPlan ? { ...e, rowPlan: undefined, target: { ...e.target, repMin: 20, repMax: 30 }, goalReps: 20, hint: "Swapped to an easy row: zone 2 the whole way.", sets: e.sets.map((st) => ({ ...st, reps: st.done ? st.reps : 20 })) } : e,
+      ),
+    }));
+  }
 
   function changeSet(ei: number, si: number, patch: Partial<SetLog>) {
     updateEntry(ei, (e) => {
@@ -136,6 +297,13 @@ export function WorkoutScreen({
     const s = e.sets[si];
     const done = !s.done;
     const ex = getExercise(e.exerciseId);
+    // Ticking a rowing set by hand mid-row logs what the PM5 shows so far.
+    const soFar = done && e.exerciseId === ROW_EXERCISE && !s.row ? pm5Session.current?.current() : null;
+    if (soFar) {
+      applyRow(enrich(soFar, false));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      return;
+    }
     // A loaded exercise ticked without a weight can't progress next time, so ask for the weight first.
     if (done && weight === undefined && s.weight == null && ex && weightLabel(ex)) {
       setEditing({ ei, si, field: "weight", thenComplete: true });
@@ -165,6 +333,9 @@ export function WorkoutScreen({
   }
 
   function finish() {
+    // A row still going on the PM5 is logged (or brought up to date) with what it shows now.
+    const soFar = pm5Session.current?.current();
+    const w = soFar ? applyRow(enrich(soFar, true)) : latest.current;
     const unticked = w.entries.reduce((n, e) => n + e.sets.filter((s) => !s.done).length, 0);
     const go = () => {
       endRest();
@@ -209,7 +380,7 @@ export function WorkoutScreen({
           </Text>
           <HeartRate hr={hr} c={c} />
         </View>
-        <Pressable onPress={finish} disabled={doneSets === 0} style={[s.finish, { backgroundColor: c.accent, opacity: doneSets === 0 ? 0.4 : 1 }]}>
+        <Pressable onPress={finish} disabled={doneSets === 0 && !pm5?.live?.active} style={[s.finish, { backgroundColor: c.accent, opacity: doneSets === 0 && !pm5?.live?.active ? 0.4 : 1 }]}>
           <Text style={{ color: c.accentInk, fontSize: 17, fontWeight: "700" }}>Finish</Text>
         </Pressable>
       </View>
@@ -223,6 +394,22 @@ export function WorkoutScreen({
           </Text>
         )}
         {pending > 0 && <Text style={[s.small, { color: c.muted }]}>Saved on this phone. It syncs when you have signal.</Text>}
+        {recovery && (
+          <View style={[s.card, { backgroundColor: c.card, borderColor: c.warn, padding: 16, gap: 10 }]}>
+            <Text style={{ color: c.text, fontSize: 17, fontWeight: "700" }}>Recovery looks low today</Text>
+            <Text style={{ color: c.muted, fontSize: 15 }}>
+              {recovery.map((x) => x[0].toUpperCase() + x.slice(1)).join(" · ")}. A hard session on a low day adds fatigue without much benefit. An easy row still counts.
+            </Text>
+            <View style={[s.row, { gap: 10 }]}>
+              <Pressable onPress={swapToEasy} style={[s.wide, { flex: 1, backgroundColor: c.accent, borderColor: c.accent, height: 50 }]}>
+                <Text style={{ color: c.accentInk, fontSize: 16, fontWeight: "700" }}>Easy row instead</Text>
+              </Pressable>
+              <Pressable onPress={() => setRecovery(null)} style={[s.wide, { flex: 1, borderColor: c.line, height: 50 }]}>
+                <Text style={{ color: c.text, fontSize: 16 }}>Row as planned</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
 
         {w.entries.map((e, ei) => (
           <EntryCard
@@ -233,6 +420,19 @@ export function WorkoutScreen({
             nextSi={up?.ei === ei ? up.si : -1}
             superset={supersetLabel(w.entries, ei)}
             past={bests(history, e.exerciseId, w.id)}
+            rowStatus={
+              e.exerciseId === ROW_EXERCISE ? (
+                <>
+                  {e.rowPlan && (
+                    <Text style={{ color: c.text, fontSize: 15, fontWeight: "600", marginTop: 6 }}>
+                      {e.rowPlan.targetSplitS ? `Hard parts: aim for ${formatSplit(e.rowPlan.targetSplitS, false)} /500m` : "Hard parts: no target yet, this row sets it"}
+                      {e.rowPlan.note ? <Text style={{ color: c.muted, fontWeight: "400" }}>{`\n${e.rowPlan.note}`}</Text> : null}
+                    </Text>
+                  )}
+                  <RowStatus c={c} pm5={pm5} onOpen={() => setRowOpen(true)} />
+                </>
+              ) : null
+            }
             onNote={() =>
               Alert.prompt(
                 "Note for this exercise",
@@ -299,6 +499,22 @@ export function WorkoutScreen({
             scheduleRestAlert(rest.endsAt, upNextText(next));
           }}
           onDone={endRest}
+        />
+      )}
+
+      {rowOpen && hasRow && (
+        <RowOverlay
+          pm5={pm5}
+          hr={hr}
+          maxHr={maxHr}
+          guided={guidedSession ? { session: guidedSession, state: iv, targetSplitS: rowPlan?.targetSplitS ?? null } : null}
+          saved={savedRow}
+          canFinish={doneSets > 0 && w.entries.every((e) => e.sets.every((x) => x.done))}
+          onMinimise={() => setRowOpen(false)}
+          onFinish={() => {
+            setRowOpen(false);
+            finish();
+          }}
         />
       )}
 
@@ -373,6 +589,7 @@ function EntryCard({
   nextSi,
   superset,
   past,
+  rowStatus,
   onNote,
   onSuperset,
   onEdit,
@@ -389,6 +606,7 @@ function EntryCard({
   nextSi: number;
   superset: string | null;
   past: ReturnType<typeof bests>;
+  rowStatus?: ReactNode;
   onNote: () => void;
   onSuperset: () => void;
   onEdit: (si: number, field: "weight" | "reps") => void;
@@ -435,6 +653,7 @@ function EntryCard({
             Warm up first: {warm.map((x) => `${x.kg === 20 ? "bar" : `${x.kg} kg`} × ${x.reps}`).join(", ")}
           </Text>
         )}
+        {rowStatus}
       </View>
 
       <View style={[s.row, { paddingHorizontal: 16, paddingBottom: 4 }]}>
@@ -483,6 +702,9 @@ function EntryCard({
                   <Text style={{ fontSize: 24, fontWeight: "800", color: set.done ? c.accentInk : isNext ? c.accent : c.muted }}>✓</Text>
                 </Pressable>
               </View>
+              {set.row && (
+                <Text style={[s.small, { color: c.muted, paddingLeft: 42, fontVariant: ["tabular-nums"] }]}>PM5 · {rowLine(set.row)}</Text>
+              )}
               {si === askAt && (
                 <View style={[s.row, { paddingLeft: 36, gap: 8 }]}>
                   <Text style={[s.small, { color: c.muted }]}>Reps left?</Text>

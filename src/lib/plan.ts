@@ -1,5 +1,6 @@
 import { isAdjustable, MAX_ADJUSTABLE_SETUPS } from "./adjustable";
 import { getExercise } from "./exercises";
+import type { RowCoaching } from "./row-sessions";
 import { ROUTINES, type Routine } from "./routines";
 
 // Pure plan logic, shared with the iPhone app. Loading and saving live in plan-store.ts.
@@ -23,6 +24,8 @@ export type Plan = {
   log: { week: string; summary: string; applied: string[] }[];
   /** The lifter's standing rules the coach must follow, e.g. room limits. */
   rules: string[];
+  /** Targets, measured max heart rate and 4 × 4 unlock from the per-row Claude review. */
+  rowCoaching?: RowCoaching;
 };
 
 export const DEFAULT_RULES = ["Low ceiling: never lift weight overhead while standing. Seated overhead pressing on a bench is fine."];
@@ -38,7 +41,11 @@ export const DEFAULT_PLAN: Plan = {
 
 /** All routines to offer: the plan's strength days plus fixed extras like the easy row. */
 export function planRoutines(plan: Plan): Routine[] {
-  return [...plan.routines.map((r) => ({ ...r, summary: routineSummary(r) })), ...ROUTINES.filter((r) => !COACHED.includes(r.key))];
+  return [
+    ...plan.routines.map((r) => ({ ...r, summary: routineSummary(r) })),
+    // 4 × 4 is the hardest session: offered once three harder rows are done (or the review unlocks it).
+    ...ROUTINES.filter((r) => !COACHED.includes(r.key) && (r.key !== "ROW_4X4" || plan.rowCoaching?.fourByFourUnlocked)),
+  ];
 }
 
 export function routineSummary(r: Routine): string {

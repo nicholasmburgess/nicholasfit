@@ -13,7 +13,7 @@ import type { Workout } from "@/lib/types";
  */
 
 export type Session = { url: string; anonKey: string; accessToken: string; refreshToken: string; expiresAt: number };
-export type Snapshot = { plan: Plan; history: Workout[]; savedAt: string };
+export type Snapshot = { plan: Plan; history: Workout[]; savedAt: string; birthYear?: number | null };
 
 const K = { session: "nf.session.v1", snapshot: "nf.snapshot.v1", workouts: "nf.workouts.v1", outbox: "nf.outbox.v1" };
 
@@ -45,7 +45,9 @@ async function saveSnapshotNow(s: Snapshot) {
   // Keep finished workouts the phone hasn't synced yet, so offline history stays complete.
   const local = Object.values(await read<Record<string, Workout>>(K.workouts, {})).filter((w) => w.finishedAt);
   const ids = new Set(s.history.map((w) => w.id));
-  await write(K.snapshot, { ...s, history: [...local.filter((w) => !ids.has(w.id)), ...s.history] });
+  // A snapshot sent without the birth year (e.g. when starting a workout) keeps the one we have.
+  const birthYear = s.birthYear ?? (await read<Snapshot | null>(K.snapshot, null))?.birthYear ?? null;
+  await write(K.snapshot, { ...s, birthYear, history: [...local.filter((w) => !ids.has(w.id)), ...s.history] });
 }
 
 export async function getWorkout(id: string): Promise<Workout | null> {

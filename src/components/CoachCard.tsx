@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button, Card } from "@/components/Card";
-import { coachSessions, reviewDue, weeksTraining } from "@/lib/coach";
+import { coachSessions, reviewDue, weeksTraining, coachRows } from "@/lib/coach";
 import { listHealthDays, recoverySummary } from "@/lib/health-store";
 import { plannedMuscleSets, weeklyMuscleSets } from "@/lib/muscles";
 import { applyChange, describeChange, weekKey, type Plan, type PlanChange } from "@/lib/plan";
@@ -54,6 +54,7 @@ export function CoachCard({ workouts, plan, onPlan }: { workouts: Workout[]; pla
           weeksTraining: weeksTraining(workouts),
           recovery,
           muscleSets: { planned: plannedMuscleSets(plan.routines), lastWeek: weeklyMuscleSets(workouts, 7) },
+          rows: coachRows(workouts),
         }),
       });
       const data = await res.json().catch(() => ({ error: "Unexpected response" }));

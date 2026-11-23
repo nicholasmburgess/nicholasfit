@@ -71,7 +71,8 @@ export function NextSession({ workouts, plan, full = false }: { workouts: Workou
       {full && (
         <div className="mt-3 flex gap-2">
           {routines
-            .filter((r) => r.key !== next.key)
+            // Rows live on the Row tab.
+            .filter((r) => r.key !== next.key && !r.key.startsWith("ROW"))
             .map((r) => (
               <button key={r.key} className="flex-1 rounded-xl bg-white/15 px-2 py-3 text-sm font-medium active:opacity-80 disabled:opacity-60" onClick={() => start(r.key)} disabled={!!starting}>
                 {r.name}

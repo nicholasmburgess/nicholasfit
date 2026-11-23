@@ -1,4 +1,5 @@
 import { COACHED, weekKey, type Plan } from "./plan";
+import { workoutRows } from "./row";
 import type { Workout } from "./types";
 
 /** Compact log of recent strength sessions for the weekly review. */
@@ -18,6 +19,18 @@ export function coachSessions(workouts: Workout[], now = new Date()) {
           .map((s) => `${s.weight != null ? `${s.weight}x` : ""}${s.reps ?? "?"}${s.feel ? ` ${s.feel}` : ""}`),
       })),
     }));
+}
+
+/** Rows in the last 4 weeks (easy and guided), so the coach can weigh cardio fatigue. */
+export function coachRows(workouts: Workout[], now = new Date()) {
+  const since = new Date(now.getTime() - 28 * 86400e3).toISOString();
+  return workouts
+    .filter((w) => w.finishedAt && w.startedAt >= since && w.templateKey?.startsWith("ROW"))
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .map((w) => {
+      const r = workoutRows(w)[0];
+      return { date: w.startedAt.slice(0, 10), session: w.name, minutes: r ? Math.round(r.seconds / 60) : null, metres: r?.distanceM ?? null, avgHr: r?.avgHr ?? null };
+    });
 }
 
 export function weeksTraining(workouts: Workout[], now = new Date()): number {

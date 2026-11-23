@@ -8,7 +8,7 @@ import { ActivityIndicator, Alert, AppState, Linking, Pressable, StyleSheet, Tex
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
-import { authorize, healthAvailable, readHealth, saveStrengthWorkout } from "./src/health";
+import { authorize, healthAvailable, readHealth, saveRowingWorkout, saveStrengthWorkout } from "./src/health";
 import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
 import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
 import { WorkoutScreen } from "./src/WorkoutScreen";
@@ -17,7 +17,10 @@ import { refreshWidget } from "./src/widgetData";
 import { buildWorkout } from "@/lib/new-workout";
 import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
 import { nextRoutineKey } from "@/lib/progression";
-import type { Workout } from "@/lib/types";
+import { getExercise } from "@/lib/exercises";
+import { workoutRows } from "@/lib/row";
+import { zonesMax } from "@/lib/row-sessions";
+import type { RowPiece, Workout } from "@/lib/types";
 
 /** The web app this shell shows. Everything except Health and Bluetooth lives there. */
 const APP_URL = "https://nicholasfit.vercel.app";
@@ -52,7 +55,7 @@ export default function App() {
   );
 }
 
-type Open = { workout: Workout; history: Workout[] };
+type Open = { workout: Workout; history: Workout[]; maxHr: number | null };
 
 function Shell() {
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
@@ -100,15 +103,18 @@ function Shell() {
     deactivateKeepAwake("workout");
   }, []);
 
-  /** Save a finished strength workout (with heart rate) to Apple Health. */
+  /**
+   * Save a finished workout (with heart rate) to Apple Health. A session that was only rowing on
+   * the PM5 is saved as a rowing workout with its distance and calories; anything else as strength.
+   */
   const saveToHealth = useCallback(
-    async (w: { id: string; name: string; startedAt: string; finishedAt: string }) => {
+    async (w: { id: string; name: string; startedAt: string; finishedAt: string }, rows: RowPiece[] = []) => {
       const samples = thin(hr.current?.samples ?? [], Date.parse(w.startedAt), Date.parse(w.finishedAt));
       stopHr();
       if (!healthAvailable()) return;
       try {
         await authorize();
-        const stats = await saveStrengthWorkout(w, samples);
+        const stats = rows.length ? await saveRowingWorkout(w, rows, samples) : await saveStrengthWorkout(w, samples);
         send({ type: "workoutSaved", id: w.id, ...stats });
       } catch (err) {
         send({ type: "workoutSaved", id: w.id, error: err instanceof Error ? err.message : "Couldn't save to Apple Health" });
@@ -120,7 +126,7 @@ function Shell() {
   const openWorkout = useCallback(
     async (w: Workout) => {
       const snap = await getSnapshot();
-      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id) });
+      setOpen({ workout: w, history: (snap?.history ?? []).filter((x) => x.id !== w.id), maxHr: zonesMax(snap?.birthYear ?? null, snap?.plan.rowCoaching) });
       startHr();
     },
     [startHr],
@@ -252,9 +258,13 @@ function Shell() {
         initial={open.workout}
         history={open.history}
         hr={hrState}
+        hrSamples={() => hr.current?.samples ?? []}
+        maxHr={open.maxHr}
         onFinish={async (w) => {
           setOpen(null);
-          saveToHealth({ id: w.id, name: w.name, startedAt: w.startedAt, finishedAt: w.finishedAt! });
+          // Rowing-only sessions go to Health as rowing; a row inside a strength day stays part of it.
+          const lifted = w.entries.some((e) => getExercise(e.exerciseId)?.pattern !== "Cardio" && e.sets.some((x) => x.done));
+          saveToHealth({ id: w.id, name: w.name, startedAt: w.startedAt, finishedAt: w.finishedAt! }, lifted ? [] : workoutRows(w));
           refreshWidget();
           // With the website open it takes over (summary, coach); otherwise the phone syncs it later.
           if (webReady.current && !failed) await handBack(w);

@@ -1,4 +1,5 @@
-import { BleManager, type Device, type Subscription } from "react-native-ble-plx";
+import type { Device, Subscription } from "react-native-ble-plx";
+import { ble, bytes as toBytes, findDevice } from "./ble";
 
 /** Standard Bluetooth Heart Rate service, used by Polar, Garmin, Wahoo and most chest straps. */
 const HR_SERVICE = "0000180d-0000-1000-8000-00805f9b34fb";
@@ -8,12 +9,9 @@ export type HrStatus = "off" | "bluetooth-off" | "searching" | "connected" | "er
 export type HrUpdate = { status: HrStatus; bpm: number | null; device: string | null; message?: string };
 export type HrSample = { at: number; bpm: number };
 
-let manager: BleManager | null = null;
-const ble = () => (manager ??= new BleManager());
-
 /** Heart rate in bpm from a Heart Rate Measurement value (base64). Flags bit 0 says 8- or 16-bit. */
 export function parseHeartRate(base64: string): number | null {
-  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const bytes = toBytes(base64);
   if (bytes.length < 2) return null;
   const bpm = bytes[0] & 0x01 ? bytes[1] | (bytes[2] << 8) : bytes[1];
   return bpm > 0 && bpm < 255 ? bpm : null;
@@ -29,6 +27,7 @@ export class HeartRateSession {
   private subs: Subscription[] = [];
   private stopped = false;
   private retry: ReturnType<typeof setTimeout> | null = null;
+  private cancelScan: (() => void) | null = null;
 
   constructor(private onUpdate: (u: HrUpdate) => void) {}
 
@@ -50,15 +49,10 @@ export class HeartRateSession {
 
   private scan() {
     this.onUpdate({ status: "searching", bpm: null, device: null });
-    ble().startDeviceScan([HR_SERVICE], null, (error, found) => {
-      if (this.stopped) return;
-      if (error) {
-        this.onUpdate({ status: "error", bpm: null, device: null, message: error.message });
-        return;
-      }
-      if (!found) return;
-      ble().stopDeviceScan();
-      this.connect(found);
+    this.cancelScan?.();
+    this.cancelScan = findDevice(HR_SERVICE, (found) => {
+      this.cancelScan = null;
+      if (!this.stopped) this.connect(found);
     });
   }
 
@@ -98,7 +92,8 @@ export class HeartRateSession {
   stop() {
     this.stopped = true;
     if (this.retry) clearTimeout(this.retry);
-    ble().stopDeviceScan();
+    this.cancelScan?.();
+    this.cancelScan = null;
     this.subs.forEach((s) => s.remove());
     this.subs = [];
     this.device?.cancelConnection().catch(() => {});
