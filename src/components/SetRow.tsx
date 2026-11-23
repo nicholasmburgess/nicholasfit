@@ -1,12 +1,7 @@
 "use client";
 
+import { FEELS } from "@/lib/feel";
 import type { Feel, SetLog } from "@/lib/types";
-
-const FEELS: { value: Feel; label: string }[] = [
-  { value: "easy", label: "Easy" },
-  { value: "good", label: "Good" },
-  { value: "hard", label: "Hard" },
-];
 
 export function SetRow({
   index,
@@ -72,10 +67,11 @@ export function SetRow({
       </div>
       {askFeel && onFeel && (
         <div className="flex items-center gap-2 pl-8" role="group" aria-label={`How did set ${index + 1} feel?`}>
-          <span className="mr-1 text-xs text-muted">How was it?</span>
+          <span className="mr-1 text-xs text-muted">Reps left?</span>
           {FEELS.map((f) => (
-            <button key={f.value} onClick={() => onFeel(f.value)} className="flex-1 rounded-xl border border-line bg-card py-2.5 text-sm font-medium active:bg-accent active:text-accent-ink">
-              {f.label}
+            <button key={f.value} onClick={() => onFeel(f.value)} className="group flex-1 rounded-xl border border-line bg-card py-1.5 text-sm font-medium active:bg-accent active:text-accent-ink">
+              <span className="block">{f.label}</span>
+              <span className="block text-[11px] font-normal text-muted group-active:text-accent-ink">{f.reps}</span>
             </button>
           ))}
         </div>

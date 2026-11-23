@@ -4,6 +4,8 @@ import type { Meal, Measurement, Profile, WeightEntry } from "@/lib/types";
 
 export interface FoodStore {
   listMeals(fromIso: string, toIso: string): Promise<Meal[]>;
+  /** When the first meal was logged: the start of the diet, for the check-in. */
+  firstMealAt(): Promise<string | null>;
   saveMeal(m: Meal): Promise<void>;
   deleteMeal(id: string): Promise<void>;
   listWeights(): Promise<WeightEntry[]>;
@@ -36,6 +38,9 @@ const local: FoodStore = {
   },
   async saveMeal(m) {
     write(K.meals, [...read<Meal[]>(K.meals, []).filter((x) => x.id !== m.id), m]);
+  },
+  async firstMealAt() {
+    return read<Meal[]>(K.meals, []).map((m) => m.eatenAt).sort()[0] ?? null;
   },
   async deleteMeal(id) {
     write(K.meals, read<Meal[]>(K.meals, []).filter((x) => x.id !== id));
@@ -81,6 +86,11 @@ const remote: FoodStore = {
       .order("eaten_at");
     if (error) throw error;
     return (data as MealRow[]).map(mealFromRow);
+  },
+  async firstMealAt() {
+    const { data, error } = await supabase().from("meals").select("eaten_at").order("eaten_at").limit(1);
+    if (error) throw error;
+    return (data as { eaten_at: string }[])[0]?.eaten_at ?? null;
   },
   async saveMeal(m) {
     const { error } = await supabase().from("meals").upsert({

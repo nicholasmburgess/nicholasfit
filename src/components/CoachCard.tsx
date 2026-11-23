@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button, Card } from "@/components/Card";
 import { coachSessions, reviewDue, weeksTraining } from "@/lib/coach";
 import { listHealthDays, recoverySummary } from "@/lib/health-store";
+import { plannedMuscleSets, weeklyMuscleSets } from "@/lib/muscles";
 import { applyChange, describeChange, weekKey, type Plan, type PlanChange } from "@/lib/plan";
 import { planStore } from "@/lib/plan-store";
 import type { Workout } from "@/lib/types";
@@ -46,7 +47,14 @@ export function CoachCard({ workouts, plan, onPlan }: { workouts: Workout[]; pla
       const res = await fetch("/api/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan: plan.routines, rules: plan.rules, sessions: coachSessions(workouts), weeksTraining: weeksTraining(workouts), recovery }),
+        body: JSON.stringify({
+          plan: plan.routines,
+          rules: plan.rules,
+           sessions: coachSessions(workouts),
+          weeksTraining: weeksTraining(workouts),
+          recovery,
+          muscleSets: { planned: plannedMuscleSets(plan.routines), lastWeek: weeklyMuscleSets(workouts, 7) },
+        }),
       });
       const data = await res.json().catch(() => ({ error: "Unexpected response" }));
       if (!res.ok) throw new Error(data.error ?? "Review failed");

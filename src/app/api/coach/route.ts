@@ -30,14 +30,16 @@ const CATALOG = EXERCISES.filter((e) => e.pattern !== "Cardio")
   .join("\n");
 const EXTRAS = EXTRA_EXERCISES.map((e) => `${e.id} | ${e.load}${adj(e.load)} | ${e.primaryMuscles.join(", ")} | ${e.level}`).join("\n");
 
-const SYSTEM = `You are the weekly strength coach inside a personal home-gym training app. Once a week you review the lifter's recent sessions and decide whether their two full-body routines (A and B, alternated about three times a week, about 45 minutes each) should change for the coming week. The app already handles session-to-session loading by itself (adds weight when every set reaches the top of the rep range, drops about 10% after three stalled sessions, adjusts within a session when a set is rated easy or hard), so you do NOT set weights. You only change which exercises are in each routine and their sets and rep ranges.
+const SYSTEM = `You are the weekly strength coach inside a personal home-gym training app. Once a week you review the lifter's recent sessions and decide whether their two full-body routines (A and B, alternated about three times a week, about 45 minutes each) should change for the coming week. The app already handles session-to-session loading by itself (adds weight when every set reaches the top of the rep range, drops about 10% after three stalled sessions, repeats a weight once when the top of the range was reached on a hard last set, adjusts within a session when a set is rated easy or hard), so you do NOT set weights. You only change which exercises are in each routine and their sets and rep ranges.
 
 The lifter is a beginner rebuilding strength, aiming to lose fat while gaining muscle. Apply current evidence on resistance training:
 - Beginners progress fastest by repeating the same main compound lifts with progressive overload. Do not swap an exercise that is still progressing. Variety for its own sake slows a beginner down.
 - Swap an exercise only for a clear reason in the log: it has stalled across several sessions even after a weight drop, it is consistently rated hard while reps fall short, or the lifter has outgrown a beginner version (for example goblet squat near the heaviest kettlebell setting with reps at the top of the range, so move to Barbell_Squat). Swaps should keep the same movement pattern.
-- Weekly volume of roughly 10 or more hard sets per muscle group supports muscle gain, with a dose-response. Add volume gradually: at most one extra set on one or two exercises per week, and only when the lifter completed at least two sessions last week with reps achieved and sets mostly rated good or easy.
+- Weekly volume: more hard sets per muscle give more muscle and strength, with diminishing returns (Pelland 2024 meta-regression; sets counted fractionally, 1 for the main muscle and 0.5 for helpers). You are given muscleSets.planned (weekly sets per muscle the current plan prescribes at three sessions a week, counted that way) and muscleSets.lastWeek (what was actually done). Use these numbers, do not estimate them. Aim to bring each main muscle towards about 10 weekly sets, raising the lowest first (often chest, biceps or triceps). Do not add sets to a muscle already at 15 or more. Add volume gradually: at most one extra set on one or two exercises per week, and only when the lifter completed at least two sessions last week with reps achieved and sets mostly rated good or easy.
+- Set ratings are reps in reserve: easy = 4 or more reps left, good = 2-3 left, hard = 0-1 left. Mostly good is the target. Many easy sets mean the rep range or load is too light; many hard sets with reps falling mean too much.
 - If the lifter trained fewer than two times last week, prioritise consistency: make no volume increases.
-- Recovery data from Apple Health may be included (7-day averages versus the 3 weeks before). Short sleep impairs strength gains and recovery, so if sleep averages under 6.5 hours, or resting heart rate is up 5 bpm or more on the earlier weeks, make no volume increases this week and mention sleep or recovery in the summary. Treat HRV as supporting evidence only. If recovery data is missing, ignore it.
+- Recovery data from Apple Health may be included (7-day averages versus the 3 weeks before). Partial sleep loss has only a small, uncertain effect on strength (Craven 2022 meta-analysis), and no fixed resting heart rate or HRV cut-off has been validated, so treat these as warning signs, not rules. Make no volume increases only when two signs agree: for example sleep under 6.5 hours (or an hour less than the earlier weeks) together with resting heart rate up 5 bpm or more, or either of those together with reps falling or sets rated hard more than usual. A single sign on its own: still allow progress, and mention it in the summary. HRV is supporting evidence only. If recovery data is missing, ignore it.
+- Do not schedule deload weeks: in a trial, a planned deload week cost lower-body strength with no gain in muscle (Coleman 2024), and a beginner on three sessions a week builds little fatigue. The app already drops a stalled lift by about 10%. If three or more lifts stalled in the same week, treat it as general fatigue: make no volume increases and name the likely cause (sleep, missed sessions, eating too little) in the summary rather than swapping exercises.
 - Main compound lifts use 5 to 10 reps; accessories 8 to 15; planks are held in seconds (keep 30 to 60).
 - Keep each routine within 45 minutes: no more than 6 exercises and about 16 working sets in total. Accessories such as curls, pushdowns, Pallof press or dead bugs can be added once sessions are being completed comfortably.
 - Equipment rule: the lifter has ONE adjustable dumbbell/kettlebell set, so each routine may contain at most TWO exercises marked "adjustable set". Barbell and cable exercises are unlimited.
@@ -53,15 +55,16 @@ ${EXTRAS}`;
 
 const IDS = new Set([...EXERCISES, ...EXTRA_EXERCISES].map((e) => e.id));
 
-/** POST { plan, sessions, weeksTraining } -> { summary, changes } (nothing is saved here). */
+/** POST { plan, sessions, weeksTraining, recovery?, muscleSets? } -> { summary, changes } (nothing is saved here). */
 export async function POST(req: Request) {
   if (!(await isSignedIn())) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "Coaching needs ANTHROPIC_API_KEY in Vercel." }, { status: 503 });
-  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown; recovery?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { plan?: unknown; sessions?: unknown; weeksTraining?: number; rules?: unknown; recovery?: unknown; muscleSets?: unknown } | null;
   const rules = Array.isArray(body?.rules) ? body.rules.filter((r): r is string => typeof r === "string").slice(0, 10).map((r) => r.slice(0, 300)) : [];
   if (!body?.plan || !Array.isArray(body.sessions)) return NextResponse.json({ error: "Missing data" }, { status: 400 });
   const recovery = body.recovery && typeof body.recovery === "object" ? body.recovery : null;
-  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, recentSessions: body.sessions.slice(0, 30), recovery });
+  const muscleSets = body.muscleSets && typeof body.muscleSets === "object" ? body.muscleSets : null;
+  const text = JSON.stringify({ weeksTraining: body.weeksTraining ?? null, currentPlan: body.plan, muscleSets, recentSessions: body.sessions.slice(0, 30), recovery });
   if (text.length > 60_000) return NextResponse.json({ error: "Too much data" }, { status: 413 });
 
   try {
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
       fallbacks: "default",
       system: SYSTEM,
       output_config: { effort: "medium", format: betaZodOutputFormat(Review) },
-      messages: [{ role: "user", content: `${rules.length ? `The lifter's rules (always follow these):\n- ${rules.join("\n- ")}\n\n` : ""}Here is the lifter's current plan and their sessions from the last four weeks (newest first; sets are weight x reps, with how the set felt when rated).\n\n${text}` }],
+      messages: [{ role: "user", content: `${rules.length ? `The lifter's rules (always follow these):\n- ${rules.join("\n- ")}\n\n` : ""}Here is the lifter's current plan and their sessions from the last four weeks (newest first; sets are weight x reps, with the reps-in-reserve rating when given: easy 4+, good 2-3, hard 0-1).\n\n${text}` }],
     });
     if (res.stop_reason === "refusal" || !res.parsed_output) return NextResponse.json({ error: "Couldn't review this week. Try again later." }, { status: 422 });
     const out = res.parsed_output;

@@ -21,8 +21,9 @@ export function exerciseHistory(workouts: Workout[], exerciseId: string): { work
 }
 
 /**
- * Beginner linear progression:
+ * Beginner double progression:
  * - every target set done at the top of the rep range -> add the exercise's increment, reset to the bottom of the range
+ *   (unless the last set was rated Hard, 0-1 reps left, the first time at this weight: then repeat it once)
  * - below the bottom of the range in each of the last two sessions at the same weight -> drop about 10%
  * - otherwise keep the weight and aim for one more rep
  */
@@ -62,6 +63,15 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
   }
 
   if (hitTop) {
+    // Top of the range but the last set was a grind (0-1 reps left): repeat the weight once so the next
+    // jump starts with reps in hand. A second time at the top moves up regardless, so a habit of rating
+    // Hard can't stall progress.
+    const prev = history[1];
+    const prevTop = prev?.sets.filter((s) => (s.weight ?? 0) === weight) ?? [];
+    const prevAtTop = prevTop.length >= target.sets && Math.min(...prevTop.map((s) => s.reps ?? 0)) >= target.repMax;
+    if (topSets.at(-1)?.feel === "hard" && !prevAtTop) {
+      return { weight, reps: target.repMax, hint: `Same weight: you hit ${target.repMax} but the last set was a grind. Do it again with a rep or two left, then it goes up` };
+    }
     // While still finding a working weight (first few sessions), an easy last set earns a double step.
     const calibrating = history.length <= 3 && topSets.at(-1)?.feel === "easy" && !isAdjustable(exerciseId);
     const step = calibrating ? ex.increment * 2 : ex.increment;

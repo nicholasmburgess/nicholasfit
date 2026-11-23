@@ -4,20 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
 import { currentWeight, dailyTargets, dayRange, dayTotals } from "@/lib/nutrition";
-import { checkinRange, weeklyCheckin } from "@/lib/checkin";
+import { loadCheckin } from "@/lib/checkin-load";
 
 /** One-line food summary for the Today page. Stays hidden if food tracking isn't set up. */
 export function FoodToday() {
   const [line, setLine] = useState<string | null>(null);
   useEffect(() => {
     const { start, end } = dayRange(0);
-    const cr = checkinRange();
-    Promise.all([foodStore.listMeals(start.toISOString(), end.toISOString()), foodStore.getProfile(), foodStore.listWeights(), foodStore.listMeals(cr.start.toISOString(), cr.end.toISOString())])
-      .then(([meals, profile, weights, past]) => {
+    Promise.all([foodStore.listMeals(start.toISOString(), end.toISOString()), foodStore.getProfile(), foodStore.listWeights()])
+      .then(async ([meals, profile, weights]) => {
         const t = dayTotals(meals);
         const w = currentWeight(weights);
         if (profile && w) {
-          const c = weeklyCheckin(profile, weights, past);
+          const c = await loadCheckin(profile, weights);
           const g = c.ready ? c.targets : dailyTargets(profile, w.kg);
           foodStore.saveTargets(g).catch(() => {});
           setLine(`${Math.round(t.kcal).toLocaleString("en-AU")} / ${g.kcal.toLocaleString("en-AU")} kcal · ${Math.round(t.protein)} / ${g.protein} g protein`);

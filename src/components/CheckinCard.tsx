@@ -9,7 +9,10 @@ export function CheckinCard({ c }: { c: Checkin }) {
       <Card className="space-y-1">
         <h2 className="font-semibold">Weekly check-in</h2>
         <p className="text-sm text-muted">
-          After about two weeks of weigh-ins and food logging, your targets start adjusting to how your body actually responds. So far: {c.loggedDays} full days logged,{" "}
+          After about two weeks of weigh-ins and food logging, your targets start adjusting to how your body actually responds.
+          {c.settlingUntil &&
+            ` The first two weeks of a diet are mostly water and glycogen, so the check-in starts counting from ${c.settlingUntil.toLocaleDateString("en-AU", { day: "numeric", month: "short" })}.`}{" "}
+          So far: {c.loggedDays} full days logged,{" "}
           {c.weighIns} weigh-ins
           {c.needDays + c.needWeighIns > 0 &&
             ` (need ${[c.needDays && `${c.needDays} more days`, c.needWeighIns && `${c.needWeighIns} more weigh-ins`].filter(Boolean).join(" and ")})`}
@@ -19,7 +22,7 @@ export function CheckinCard({ c }: { c: Checkin }) {
     );
 
   const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
-  const tone = c.verdict === "on-track" ? "text-accent" : "text-warn";
+  const tone = c.verdict === "on-track" || c.verdict === "recomp" ? "text-accent" : "text-warn";
   return (
     <Card className="space-y-3">
       <div className="flex items-baseline justify-between">
@@ -41,11 +44,12 @@ export function CheckinCard({ c }: { c: Checkin }) {
         </div>
       </div>
       <p className={`text-sm ${tone}`}>{c.advice}</p>
+      {c.waistCmPerWeek != null && <p className="text-xs text-muted">Waist: {sign(c.waistCmPerWeek)} cm per week</p>}
       <p className="text-sm">
         New daily target: <span className="font-semibold">{c.targets.kcal.toLocaleString("en-AU")} kcal</span> · {c.targets.protein} g protein
       </p>
       <p className="text-xs text-muted">
-        From the last 3 weeks ({c.loggedDays} full days logged, {c.weighIns} weigh-ins). Maintenance = average logged intake adjusted for your weight trend (about 7,700 kcal per kg).
+        From the last 3 weeks ({c.loggedDays} full days logged, {c.weighIns} weigh-ins). Maintenance = average logged intake adjusted for your weight trend (about 6,000 kcal per kg, the measured value during a diet).
         The formula guessed {c.formulaMaintenance.toLocaleString("en-AU")}. Because it&apos;s based on what you log, it also corrects for estimates that run consistently low.
       </p>
     </Card>
