@@ -7,12 +7,7 @@ const ICONS: Record<string, React.ReactNode> = {
   Today: <path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z" />,
   Progress: <path d="M4 20V10M10 20V4M16 20v-7M21 20H3" />,
   Food: <path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10M16 3c-2 2-2 6 0 8v10" />,
-  History: (
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5V12l3 2" />
-    </>
-  ),
+  Workout: <path d="M3 9v6M6.5 6v12M17.5 6v12M21 9v6M6.5 12h11" />,
   Stretch: (
     <>
       <circle cx="15" cy="4.5" r="2" />
@@ -22,10 +17,10 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 const TABS = [
-  { href: "/", label: "Today", match: (p: string) => p === "/" || p.startsWith("/workout") },
+  { href: "/", label: "Today", match: (p: string) => p === "/" },
+  { href: "/workouts", label: "Workout", match: (p: string) => p.startsWith("/workout") },
   { href: "/progress", label: "Progress", match: (p: string) => p.startsWith("/progress") || p.startsWith("/exercises") },
   { href: "/food", label: "Food", match: (p: string) => p.startsWith("/food") },
-  { href: "/history", label: "History", match: (p: string) => p.startsWith("/history") },
   { href: "/flexibility", label: "Stretch", match: (p: string) => p.startsWith("/flexibility") },
 ];
 

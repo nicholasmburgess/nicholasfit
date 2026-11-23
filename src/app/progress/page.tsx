@@ -69,8 +69,8 @@ export default function ProgressPage() {
       {t.workouts === 0 ? (
         <Card>
           <p className="text-sm text-muted">Finish your first workout and your charts will start here.</p>
-          <Link href="/" className="mt-3 block text-sm text-accent">
-            Go to Today
+          <Link href="/workouts" className="mt-3 block text-sm text-accent">
+            Go to Workout
           </Link>
         </Card>
       ) : (
