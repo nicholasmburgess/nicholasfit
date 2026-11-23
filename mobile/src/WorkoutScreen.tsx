@@ -12,6 +12,7 @@ import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import type { Entry, Feel, SetLog, Workout } from "@/lib/types";
 import type { HrUpdate } from "./heartRate";
+import { endRest as endLockScreenRest, showRest } from "./restActivity";
 import { onSyncChange, pendingCount, saveWorkout } from "./store";
 
 /**
@@ -77,6 +78,14 @@ export function WorkoutScreen({
       if (notif.current) Notifications.cancelScheduledNotificationAsync(notif.current).catch(() => {});
     };
   }, []);
+
+  // Mirror the rest timer on the Lock Screen and Dynamic Island.
+  const restUpNext = rest ? upNextText(w) : "";
+  useEffect(() => {
+    if (!rest) return endLockScreenRest();
+    showRest({ startsAt: rest.endsAt - rest.total * 1000, endsAt: rest.endsAt, upNext: restUpNext });
+  }, [rest, restUpNext]);
+  useEffect(() => endLockScreenRest, []);
 
   /** Every change is saved on the phone straight away and synced in the background. */
   const update = useCallback((fn: (w: Workout) => Workout) => {

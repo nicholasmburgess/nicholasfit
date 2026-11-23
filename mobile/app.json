@@ -47,7 +47,44 @@
           "enableRemoteNotifications": false
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.nicholasmburgess.nicholasfit.widgets",
+          "groupIdentifier": "group.com.nicholasmburgess.nicholasfit",
+          "widgets": [
+            {
+              "name": "Today",
+              "displayName": "Nicholasfit",
+              "description": "Today's workout, calories left, protein and weight.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium",
+                  "accessoryCircular",
+                  "accessoryRectangular",
+                  "accessoryInline"
+                ],
+                "initialLayout": "./widgets/Today.tsx"
+              },
+              "android": null
+            },
+            {
+              "name": "Rings",
+              "displayName": "Nutrition rings",
+              "description": "Calorie and protein rings. Tap to log food or start a workout.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
+                ],
+                "initialLayout": "./widgets/Rings.tsx"
+              },
+              "android": null
+            }
+          ]
+        }
+      ]
     ]
   }
 }

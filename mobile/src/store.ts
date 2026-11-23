@@ -58,6 +58,11 @@ export async function activeWorkout(): Promise<Workout | null> {
   return all.filter((w) => !w.finishedAt).sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
 }
 
+/** Finished workouts still on the phone (not yet synced or handed over). */
+export async function localFinished(): Promise<Workout[]> {
+  return Object.values(await read<Record<string, Workout>>(K.workouts, {})).filter((w) => w.finishedAt);
+}
+
 export async function pendingCount(): Promise<number> {
   return Object.keys(await read<Record<string, number>>(K.outbox, {})).length;
 }
@@ -88,7 +93,7 @@ export async function saveWorkout(w: Workout) {
   push(w.id).catch(() => {});
 }
 
-async function freshSession(): Promise<Session | null> {
+export async function freshSession(): Promise<Session | null> {
   const s = await getSession();
   if (!s) return null;
   if (s.expiresAt * 1000 - Date.now() > 60_000) return s;
