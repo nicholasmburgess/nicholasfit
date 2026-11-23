@@ -1,9 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { StretchVideo } from "@/components/flex/StretchVideo";
 
-/** Loops the start and end photos of an exercise so the movement reads like a short animation. */
-export function ExerciseDemo({ images, name, className = "" }: { images: string[]; name: string; className?: string }) {
+/**
+ * Shows an exercise demo. With `videoId` it first streams the short ExerciseDB clip (needs signal and
+ * the ExerciseDB key); if there is no clip it falls back to the start and end photos, looped so the
+ * movement reads like a short animation.
+ */
+export function ExerciseDemo({ images, name, videoId, className = "" }: { images: string[]; name: string; videoId?: string; className?: string }) {
+  const [video, setVideo] = useState(Boolean(videoId));
+  useEffect(() => setVideo(Boolean(videoId)), [videoId]);
+  if (video && videoId) return <StretchVideo id={videoId} onFail={() => setVideo(false)} />;
+  return <Photos images={images} name={name} className={className} />;
+}
+
+function Photos({ images, name, className }: { images: string[]; name: string; className: string }) {
   const [frame, setFrame] = useState(0);
   useEffect(() => {
     if (images.length < 2) return;

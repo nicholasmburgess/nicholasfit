@@ -481,7 +481,7 @@ function EntryCard({
         )}
         {showDemo && (
           <div className="mt-3 space-y-2">
-            <ExerciseDemo images={ex.images} name={ex.name} />
+            <ExerciseDemo images={ex.images} name={ex.name} videoId={ex.id} />
             <ul className="list-disc space-y-1 pl-5 text-sm">
               {ex.cues.map((c) => (
                 <li key={c}>{c}</li>
