@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/Card";
+import { WEIGHTS_EVENT, WITHINGS_THROTTLE_KEY as THROTTLE_KEY } from "@/components/WithingsAutoSync";
 
 type Status = { available: boolean; connected?: boolean; lastSync?: string | null; error?: string; added?: number };
-const THROTTLE_KEY = "nicholasfit.withings.lastAutoSync";
 
 function ago(iso: string) {
   const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
@@ -48,6 +48,16 @@ export function WithingsCard({ onSynced }: { onSynced?: () => void }) {
       .catch(() => setS(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // The app-wide sync (on open) brought in new weigh-ins: refresh the list and the status line.
+  useEffect(() => {
+    const again = () => {
+      onSynced?.();
+      fetch("/api/withings/sync").then((r) => r.json()).then(setS).catch(() => {});
+    };
+    window.addEventListener(WEIGHTS_EVENT, again);
+    return () => window.removeEventListener(WEIGHTS_EVENT, again);
+  }, [onSynced]);
 
   if (!s?.available) return null;
   const banner =

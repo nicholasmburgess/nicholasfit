@@ -12,13 +12,30 @@ const KCAL_PER_KG = 6000;
 /** Early weight loss is mostly water and glycogen, so the first two weeks of logging are left out. */
 const SETTLE_DAYS = 14;
 const WINDOW_DAYS = 21;
-/** A day counts as logged only when it looks complete, so a forgotten dinner doesn't drag the average down. */
+/**
+ * A day counts as logged only when it looks complete, so a forgotten dinner doesn't drag the average down:
+ * at least 1,000 kcal and at least 70% of your typical (median) logged day. Counting part-logged days would
+ * set the target from a too-low intake, and then a fully logged day at that target is a bigger real deficit
+ * than intended (about 500 kcal/day in testing, the level that stops lean-mass gains).
+ */
 const MIN_DAY_KCAL = 1000;
+const MIN_DAY_SHARE = 0.7;
 const MIN_LOGGED_DAYS = 10;
 const MIN_WEIGH_INS = 6;
 
 export type Checkin =
-  | { ready: false; loggedDays: number; weighIns: number; needDays: number; needWeighIns: number; settlingUntil: Date | null }
+  | {
+      ready: false;
+      loggedDays: number;
+      weighIns: number;
+      needDays: number;
+      needWeighIns: number;
+      settlingUntil: Date | null;
+      /** Earliest Monday the check-in can be ready, if logging and weighing continue daily. */
+      firstCheckin: Date;
+      /** Days left out because they looked part-logged. */
+      partialDays: number;
+    }
   | {
       ready: true;
       weekOf: Date;
@@ -35,6 +52,7 @@ export type Checkin =
       /** Waist trend over the window, when there are enough measurements. */
       waistCmPerWeek: number | null;
       advice: string;
+      partialDays: number;
     };
 
 function slopePerDay(points: { t: number; kg: number }[]): number {
@@ -75,17 +93,29 @@ export function weeklyCheckin(
 
   const byDay = new Map<string, number>();
   for (const m of meals.filter((m) => inWindow(m.eatenAt))) byDay.set(dayKey(m.eatenAt), (byDay.get(dayKey(m.eatenAt)) ?? 0) + m.kcal);
-  const logged = [...byDay.values()].filter((k) => k >= MIN_DAY_KCAL);
+  const days = [...byDay.values()].filter((k) => k >= MIN_DAY_KCAL);
+  const sorted = [...days].sort((a, b) => a - b);
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  const logged = days.filter((k) => k >= median * MIN_DAY_SHARE);
+  const partialDays = byDay.size - logged.length;
   const ws = weights.filter((w) => inWindow(w.measuredAt));
 
   if (logged.length < MIN_LOGGED_DAYS || ws.length < MIN_WEIGH_INS) {
+    const needDays = Math.max(0, MIN_LOGGED_DAYS - logged.length);
+    const needWeighIns = Math.max(0, MIN_WEIGH_INS - ws.length);
+    // Days still to log start today; the settling weeks must be over and 10 days logged after them.
+    const doneBy = Math.max(now.getTime() + Math.max(needDays, needWeighIns) * 86400e3, settled ? settled.getTime() + MIN_LOGGED_DAYS * 86400e3 : 0);
+    const firstCheckin = startOfWeek(new Date(doneBy));
+    firstCheckin.setDate(firstCheckin.getDate() + 7);
     return {
       ready: false,
       loggedDays: logged.length,
       weighIns: ws.length,
-      needDays: Math.max(0, MIN_LOGGED_DAYS - logged.length),
-      needWeighIns: Math.max(0, MIN_WEIGH_INS - ws.length),
+      needDays,
+      needWeighIns,
       settlingUntil: settled && settled > now ? settled : null,
+      firstCheckin,
+      partialDays,
     };
   }
 
@@ -134,6 +164,7 @@ export function weeklyCheckin(
     verdict,
     waistCmPerWeek,
     advice,
+    partialDays,
   };
 }
 

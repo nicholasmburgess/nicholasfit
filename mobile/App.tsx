@@ -10,11 +10,16 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { ShouldStartLoadRequest } from "react-native-webview/lib/WebViewTypes";
 import { authorize, healthAvailable, readHealth, saveRowingWorkout, saveStrengthWorkout } from "./src/health";
 import { HeartRateSession, type HrUpdate, thin } from "./src/heartRate";
-import { type Session, activeWorkout, deleteRemote, getSnapshot, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
+import { type Session, activeWorkout, deleteRemote, getSnapshot, pendingCount, release, saveSession, saveSnapshot, saveWorkout, type Snapshot } from "./src/store";
 import { WorkoutScreen } from "./src/WorkoutScreen";
 import { endAllRests } from "./src/restActivity";
 import { refreshWidget } from "./src/widgetData";
+import { registerBackgroundRefresh } from "./src/background";
+import { expiresAt } from "./src/expiry";
+import { scheduleReminders } from "./src/reminders";
+import type { ReminderContext, ReminderSettings } from "@/lib/reminders";
 import { buildWorkout } from "@/lib/new-workout";
+import { staleFinish } from "@/lib/stale";
 import { DEFAULT_PLAN, planRoutines } from "@/lib/plan";
 import { nextRoutineKey } from "@/lib/progression";
 import { getExercise } from "@/lib/exercises";
@@ -40,7 +45,8 @@ type FromWeb =
   | { type: "snapshot"; snapshot: Omit<Snapshot, "savedAt"> }
   | { type: "startWorkout"; key: string | null; snapshot?: Omit<Snapshot, "savedAt"> }
   | { type: "openWorkout"; workout: Workout }
-  | { type: "shareFile"; name: string; mime: string; text: string };
+  | { type: "shareFile"; name: string; mime: string; text: string }
+  | { type: "reminders"; settings: ReminderSettings; context: ReminderContext };
 
 const COLORS = {
   light: { bg: "#f4f6f5", text: "#0b4d34", muted: "#66706b", accent: "#0b4d34", accentInk: "#ffffff" },
@@ -132,17 +138,35 @@ function Shell() {
     [startHr],
   );
 
+  /**
+   * The workout left open on this phone, unless Finish was forgotten: then it's finished at its last set
+   * (plus 10 minutes), saved to Apple Health with the right times, and synced, so it counts.
+   */
+  const openOrClose = useCallback(async (): Promise<Workout | null> => {
+    const w = await activeWorkout();
+    const closed = w && staleFinish(w);
+    if (!closed) return w;
+    await saveWorkout(closed);
+    const lifted = closed.entries.some((e) => getExercise(e.exerciseId)?.pattern !== "Cardio" && e.sets.some((x) => x.done));
+    if (healthAvailable())
+      authorize()
+        .then(() => (lifted ? saveStrengthWorkout(closed as Workout & { finishedAt: string }, []) : saveRowingWorkout(closed as Workout & { finishedAt: string }, workoutRows(closed), [])))
+        .catch(() => {});
+    refreshWidget();
+    return null;
+  }, []);
+
   /** Start a routine on the phone, using the plan and history the website last handed over. Works with no signal. */
   const startWorkout = useCallback(
     async (key: string | null) => {
-      const existing = await activeWorkout();
+      const existing = await openOrClose();
       if (existing) return openWorkout(existing);
       const snap = await getSnapshot();
       const w = buildWorkout(Crypto.randomUUID(), snap?.history ?? [], key, snap?.plan ?? DEFAULT_PLAN);
       await saveWorkout(w);
       openWorkout(w);
     },
-    [openWorkout],
+    [openWorkout, openOrClose],
   );
 
   /** Give the workout back to the website, which saves it and shows it. */
@@ -156,8 +180,8 @@ function Shell() {
 
   // A workout left open on the phone (app closed mid-session) comes straight back.
   useEffect(() => {
-    activeWorkout().then((w) => w && openWorkout(w));
-  }, [openWorkout]);
+    openOrClose().then((w) => w && openWorkout(w));
+  }, [openWorkout, openOrClose]);
 
   // The Nutrition rings widget opens nicholasfit://log-food.
   const pendingFood = useRef(false);
@@ -183,6 +207,9 @@ function Shell() {
   useEffect(() => {
     endAllRests();
     refreshWidget();
+    registerBackgroundRefresh();
+    // Re-plan reminders from the last copy, so the expiry warning is set even before the site loads.
+    scheduleReminders();
   }, []);
 
   const onMessage = useCallback(
@@ -196,7 +223,7 @@ function Shell() {
       switch (msg.type) {
         case "hello":
           webReady.current = true;
-          send({ type: "native", version: BRIDGE_VERSION, health: healthAvailable(), bluetooth: true });
+          send({ type: "native", version: BRIDGE_VERSION, health: healthAvailable(), bluetooth: true, expiresAt: expiresAt(), unsynced: await pendingCount() });
           if (pendingFood.current) {
             pendingFood.current = false;
             openFood();
@@ -222,6 +249,9 @@ function Shell() {
         case "shareFile":
           shareFile(msg.name, msg.mime, msg.text);
           break;
+        case "reminders":
+          scheduleReminders({ settings: msg.settings, context: msg.context });
+          break;
         case "healthSync":
           syncHealth(msg.days);
           break;
@@ -242,7 +272,7 @@ function Shell() {
   // Tell the page whenever the app comes back to the front so it can refresh (and re-sync Health).
   useEffect(() => {
     const sub = AppState.addEventListener("change", (s) => {
-      if (s === "active") send({ type: "resumed" });
+      if (s === "active") pendingCount().then((unsynced) => send({ type: "resumed", expiresAt: expiresAt(), unsynced }));
       // Leaving the app (often right after logging a meal) or coming back updates the widget.
       if (s === "active" || s === "background") refreshWidget();
     });

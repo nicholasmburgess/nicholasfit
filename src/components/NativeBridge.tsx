@@ -6,6 +6,7 @@ import { foodStore } from "@/lib/food-store";
 import { healthError, lastHealthSync, saveHealth } from "@/lib/health-store";
 import { isNativeApp, nativeVersion, onNative, postNative } from "@/lib/native";
 import { planStore } from "@/lib/plan-store";
+import { sendReminders } from "@/lib/reminders-web";
 import { store } from "@/lib/store";
 import { SUPABASE_ANON_KEY, SUPABASE_URL, hasSupabase } from "@/lib/supabase/config";
 import { supabase } from "@/lib/supabase/client";
@@ -46,14 +47,17 @@ export function NativeBridge() {
     if (!isNativeApp()) return;
     const maybeSync = () => Date.now() - lastHealthSync() > EVERY_MS && postNative({ type: "healthSync", days: 14 });
     const off = onNative(async (m) => {
+      if (m.type === "native" || m.type === "resumed") window.nicholasfitNativeInfo = { expiresAt: m.expiresAt, unsynced: m.unsynced };
       if (m.type === "native") {
         if (m.health) maybeSync();
         sendSession();
         sendSnapshot();
+        sendReminders();
       }
       if (m.type === "resumed") {
         maybeSync();
         sendSession();
+        sendReminders();
       }
       if (m.type === "healthData" && m.days) {
         try {
@@ -76,6 +80,7 @@ export function NativeBridge() {
           }
         } finally {
           sendSnapshot();
+          sendReminders();
         }
       }
     });

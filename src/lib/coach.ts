@@ -38,8 +38,20 @@ export function weeksTraining(workouts: Workout[], now = new Date()): number {
   return first ? Math.max(1, Math.ceil((now.getTime() - Date.parse(first)) / (7 * 86400e3))) : 0;
 }
 
-/** A review is due once a week, after at least three finished strength sessions. */
+/** Monday 00:00 of this week: the review looks at the full week before it (Mon–Sun). */
+export function reviewWeekEnd(now = new Date()): Date {
+  const x = new Date(now);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+}
+
+/**
+ * A review is due once a week, from Monday, once at least three strength sessions were finished before this
+ * week began, so it always reviews a complete Mon–Sun week.
+ */
 export function reviewDue(plan: Plan, workouts: Workout[], now = new Date()): boolean {
   if (plan.reviewedWeek === weekKey(now)) return false;
-  return workouts.filter((w) => w.finishedAt && w.templateKey && COACHED.includes(w.templateKey)).length >= 3;
+  const end = reviewWeekEnd(now).toISOString();
+  return workouts.filter((w) => w.finishedAt && w.startedAt < end && w.templateKey && COACHED.includes(w.templateKey)).length >= 3;
 }

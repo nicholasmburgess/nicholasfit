@@ -13,9 +13,11 @@ export function SetRow({
   repsPlaceholder,
   readOnly,
   askFeel,
+  askMore,
   onEdit,
   onToggle,
   onFeel,
+  onMore,
 }: {
   index: number;
   set: SetLog;
@@ -32,6 +34,9 @@ export function SetRow({
   onEdit: (field: "weight" | "reps") => void;
   onToggle: () => void;
   onFeel?: (f: Feel) => void;
+  /** Rated Easy: ask whether more reps were done than logged. */
+  askMore?: boolean;
+  onMore?: (n: number) => void;
 }) {
   const field = `h-12 w-full rounded-xl text-center text-xl font-semibold tabular-nums disabled:opacity-100 ${
     set.done ? "bg-transparent" : "bg-card-2"
@@ -74,6 +79,19 @@ export function SetRow({
               <span className="block text-[11px] font-normal text-muted group-active:text-accent-ink">{f.reps}</span>
             </button>
           ))}
+        </div>
+      )}
+      {askMore && onMore && (
+        <div className="flex items-center gap-2 pl-8" role="group" aria-label={`Did you do more reps on set ${index + 1}?`}>
+          <span className="mr-1 text-xs text-muted">Did more?</span>
+          {[1, 2, 3, 4].map((n) => (
+            <button key={n} onClick={() => onMore(n)} className="flex-1 rounded-xl border border-line bg-card py-2 text-sm font-semibold active:bg-accent active:text-accent-ink">
+              +{n}
+            </button>
+          ))}
+          <button onClick={() => onMore(0)} aria-label="No, that was all" className="rounded-xl px-2 py-2 text-sm text-muted">
+            No
+          </button>
         </div>
       )}
     </div>

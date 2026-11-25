@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DemoBanner } from "@/components/DemoBanner";
 import { NativeBridge } from "@/components/NativeBridge";
+import { WithingsAutoSync } from "@/components/WithingsAutoSync";
+import { ExpiryBanner } from "@/components/ExpiryBanner";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -29,10 +31,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="antialiased">
         <div className="mx-auto min-h-dvh max-w-md px-4 md:max-w-3xl md:px-8 lg:max-w-5xl pt-[max(1rem,env(safe-area-inset-top))] pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
           <DemoBanner />
+          <ExpiryBanner />
           {children}
         </div>
         <BottomNav />
         <NativeBridge />
+        <WithingsAutoSync />
       </body>
     </html>
   );

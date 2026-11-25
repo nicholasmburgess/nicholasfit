@@ -32,12 +32,13 @@ export const MAIN_GROUPS = ["Chest", "Back", "Shoulders", "Quads", "Hamstrings",
 
 export function weeklyMuscleSets(workouts: Workout[], days = 7, now = new Date()): { group: string; sets: number }[] {
   const since = new Date(now.getTime() - days * 86400e3).toISOString();
+  const until = now.toISOString();
   const tally = new Map<string, number>(MAIN_GROUPS.map((g) => [g, 0]));
   for (const w of workouts) {
-    if (!w.finishedAt || w.startedAt < since) continue;
+    if (!w.finishedAt || w.startedAt < since || w.startedAt >= until) continue;
     for (const e of w.entries) {
       const ex = getExercise(e.exerciseId);
-      if (!ex || ex.unit !== "reps") continue;
+      if (!ex || ex.unit === "minutes") continue;
       const n = e.sets.filter((s) => s.done).length;
       if (!n) continue;
       for (const [g, c] of muscleCredit(e.exerciseId)) tally.set(g, (tally.get(g) ?? 0) + c * n);
@@ -50,7 +51,7 @@ export function weeklyMuscleSets(workouts: Workout[], days = 7, now = new Date()
 function muscleCredit(exerciseId: string): Map<string, number> {
   const ex = getExercise(exerciseId);
   const credit = new Map<string, number>();
-  if (!ex || ex.unit !== "reps") return credit;
+  if (!ex || ex.unit === "minutes") return credit; // timed holds (plank) count; rowing does not
   for (const m of ex.secondaryMuscles ?? []) if (GROUP[m]) credit.set(GROUP[m], 0.5);
   for (const m of ex.primaryMuscles ?? []) if (GROUP[m]) credit.set(GROUP[m], 1);
   return credit;

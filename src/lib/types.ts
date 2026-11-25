@@ -15,6 +15,8 @@ export type SetLog = {
   done: boolean;
   /** How the set felt, tapped after ticking it. Drives the next set's weight and next session's jump. */
   feel?: Feel;
+  /** When the set was ticked, so a workout left open can be finished at the right time. */
+  doneAt?: string;
   /** A row logged live from the Concept2 PM5 over Bluetooth (one piece per set). */
   row?: RowPiece;
 };
@@ -50,6 +52,8 @@ export type Entry = {
   goalReps?: number;
   /** The routine's original exercise when this one was swapped in, e.g. Goblet_Squat for Barbell_Squat. */
   slot?: string;
+  /** Swapped for this session only: the next session goes back to the routine's exercise. */
+  swapToday?: boolean;
   /** Entries sharing a group id are a superset: alternate between them, rest after each round. */
   group?: string;
   /** Your own note for this exercise (e.g. "seat on notch 4"). Carried into future sessions. */
