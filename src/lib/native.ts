@@ -23,8 +23,9 @@ export type HealthDay = { day: string; steps: number | null; activeKcal: number 
 export type HealthWorkout = { id: string; activity: string; startedAt: string; minutes: number; distanceM: number | null; kcal: number | null; source: string | null };
 
 export type FromNative =
-  | { type: "native"; version: number; health: boolean; bluetooth: boolean }
-  | { type: "resumed" }
+  /** expiresAt: when this free-account install stops opening; unsynced: workouts on the phone not yet synced. */
+  | { type: "native"; version: number; health: boolean; bluetooth: boolean; expiresAt?: string | null; unsynced?: number }
+  | { type: "resumed"; expiresAt?: string | null; unsynced?: number }
   | ({ type: "healthData"; error?: string } & Partial<{ days: HealthDay[]; workouts: HealthWorkout[] }>)
   | HrUpdate
   | { type: "workoutSaved"; id: string; avgHr?: number | null; maxHr?: number | null; error?: string }
@@ -46,7 +47,8 @@ export type ToNative =
   | { type: "snapshot"; snapshot: { plan: Plan; history: Workout[]; birthYear?: number | null } }
   | { type: "startWorkout"; key: string | null; snapshot?: { plan: Plan; history: Workout[] } }
   | { type: "openWorkout"; workout: Workout }
-  | { type: "shareFile"; name: string; mime: string; text: string };
+  | { type: "shareFile"; name: string; mime: string; text: string }
+  | { type: "reminders"; settings: import("./reminders").ReminderSettings; context: import("./reminders").ReminderContext };
 
 export function postNative(msg: ToNative) {
   if (isNativeApp()) window.ReactNativeWebView!.postMessage(JSON.stringify(msg));

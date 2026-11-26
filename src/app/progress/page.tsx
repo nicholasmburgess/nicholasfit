@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { foodStore } from "@/lib/food-store";
 import { WidgetCard } from "@/components/WidgetCard";
 import { WithingsCard } from "@/components/WithingsCard";
+import { RemindersCard } from "@/components/RemindersCard";
 import { WaistCard } from "@/components/WaistCard";
 import { HealthCard } from "@/components/HealthCard";
 import { MuscleSetsCard } from "@/components/MuscleSetsCard";
@@ -129,6 +130,7 @@ export default function ProgressPage() {
       )}
       <WaistCard />
       <HealthCard />
+      <RemindersCard />
       <WidgetCard />
     </main>
   );

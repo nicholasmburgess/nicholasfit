@@ -1,11 +1,12 @@
-import { DEFAULT_PLAN, DEFAULT_RULES, type Plan } from "./plan";
+import { DEFAULT_PLAN, DEFAULT_RULES, upgradePlan, type Plan } from "./plan";
 import { hasSupabase } from "./supabase/config";
 import { supabase } from "./supabase/client";
 
 const KEY = "nicholasfit.plan.v1";
 
 function withDefaults(p: Partial<Plan>): Plan {
-  return { ...DEFAULT_PLAN, ...p, rules: p.rules ?? DEFAULT_RULES };
+  // A saved plan from before versioning counts as version 1, so it gets the built-in updates once.
+  return upgradePlan({ ...DEFAULT_PLAN, version: 1, ...p, rules: p.rules ?? DEFAULT_RULES });
 }
 
 export const planStore = {

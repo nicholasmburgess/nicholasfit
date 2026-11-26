@@ -26,7 +26,13 @@ export type Plan = {
   rules: string[];
   /** Targets, measured max heart rate and 4 × 4 unlock from the per-row Claude review. */
   rowCoaching?: RowCoaching;
+  /** A weekly review that has been run but not yet accepted or skipped, so it isn't lost (or re-run) when you leave the page. */
+  pendingReview?: { week: string; summary: string; changes: PlanChange[] };
+  /** Built-in plan updates applied so far (see upgradePlan). */
+  version?: number;
 };
+
+export const PLAN_VERSION = 2;
 
 export const DEFAULT_RULES = ["Low ceiling: never lift weight overhead while standing. Seated overhead pressing on a bench is fine."];
 
@@ -37,7 +43,27 @@ export const DEFAULT_PLAN: Plan = {
   reviewedWeek: null,
   log: [],
   rules: DEFAULT_RULES,
+  version: PLAN_VERSION,
 };
+
+/**
+ * One-off updates to a saved plan when the app's default plan improves. Each only applies when that part
+ * of the plan is still as it started, so the coach's and your own changes are kept.
+ * v2: bench press 3 → 4 sets, and a cable curl + rope pushdown superset in Strength A (chest, biceps and
+ * triceps were at about 4.5 weekly sets against the ~10 the app aims for).
+ */
+export function upgradePlan(plan: Plan): Plan {
+  if ((plan.version ?? 1) >= PLAN_VERSION) return plan;
+  const routines = plan.routines.map((r) => {
+    if (r.key !== "A") return r;
+    const fresh = ROUTINES.find((x) => x.key === "A")!;
+    let items = r.items.map((i) => (i.exerciseId === "Barbell_Bench_Press_-_Medium_Grip" && i.target.sets === 3 ? { ...i, target: { ...i.target, sets: 4 } } : i));
+    const arms = fresh.items.filter((i) => i.group === "arms");
+    if (items.length <= 5 && !arms.some((a) => items.some((i) => i.exerciseId === a.exerciseId))) items = [...items, ...arms];
+    return { ...r, items };
+  });
+  return { ...plan, routines, version: PLAN_VERSION };
+}
 
 /** All routines to offer: the plan's strength days plus fixed extras like the easy row. */
 export function planRoutines(plan: Plan): Routine[] {
@@ -104,7 +130,7 @@ export function applyChange(plan: Plan, c: PlanChange): { plan: Plan } | { error
     } else {
       if (!c.newExerciseId || !getExercise(c.newExerciseId)) return { error: "Unknown exercise" };
       if (items.some((i) => i.exerciseId === c.newExerciseId)) return { error: "Already in this routine" };
-      items[idx] = { exerciseId: c.newExerciseId, target: tgt(items[idx].target) };
+      items[idx] = { exerciseId: c.newExerciseId, target: tgt(items[idx].target), ...(items[idx].group ? { group: items[idx].group } : {}) };
     }
   }
   if (items.filter((i) => isAdjustable(i.exerciseId)).length > MAX_ADJUSTABLE_SETUPS)

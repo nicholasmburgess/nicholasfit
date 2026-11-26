@@ -26,6 +26,8 @@ type Meta = {
   cues: string[];
   /** Name to look for in ExerciseDB's video library, when ours doesn't match theirs. */
   videoSearch?: string;
+  /** Only accept a clip whose ExerciseDB name matches this, otherwise show the photos instead. */
+  videoMatch?: RegExp;
 };
 
 const META: Record<string, Meta> = {
@@ -159,7 +161,10 @@ const META: Record<string, Meta> = {
     name: "Groiners", area: "Hips", kind: "move", sides: false,
     feel: "Groin and hip flexors",
     cues: ["Start in a push-up position", "Step one foot outside the same-side hand, sink the hips", "Step back and switch, alternate slowly"],
-    videoSearch: "groiners",
+    // ExerciseDB's top hit for "groiners" was a different move. Its clip of this one is a spider-man
+    // style lunge; accept only that, otherwise fall back to the photos.
+    videoSearch: "spiderman lunge",
+    videoMatch: /spider|groin/i,
   },
 };
 

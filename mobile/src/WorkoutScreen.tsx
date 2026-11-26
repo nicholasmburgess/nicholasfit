@@ -8,7 +8,7 @@ import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable } from "@/lib/adj
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { describePlates, warmupSets } from "@/lib/plates";
 import { FEELS } from "@/lib/feel";
-import { applyFeel, exerciseHistory } from "@/lib/progression";
+import { addReps, applyFeel, exerciseHistory } from "@/lib/progression";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import { ROW_EXERCISE, formatSplit, rowLine } from "@/lib/row";
@@ -312,7 +312,7 @@ export function WorkoutScreen({
     const next = update((x) => ({
       ...x,
       entries: x.entries.map((en, j) =>
-        j !== ei ? en : { ...en, sets: en.sets.map((st, k) => (k !== si ? st : { ...st, done, reps: st.reps ?? en.goalReps ?? en.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? {} : { feel: undefined }) })) },
+        j !== ei ? en : { ...en, sets: en.sets.map((st, k) => (k !== si ? st : { ...st, done, reps: st.reps ?? en.goalReps ?? en.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? { doneAt: new Date().toISOString() } : { feel: undefined, doneAt: undefined }) })) },
       ),
     }));
     const pr = done && isLivePr(next.entries[ei], si, bests(history, e.exerciseId, next.id));
@@ -458,6 +458,10 @@ export function WorkoutScreen({
               tap();
               updateEntry(ei, (x) => applyFeel(x, si, f));
             }}
+            onMore={(si, n) => {
+              tap();
+              updateEntry(ei, (x) => addReps(x, si, n));
+            }}
             onAddSet={() => {
               tap();
               updateEntry(ei, (x) => ({ ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] }));
@@ -484,6 +488,7 @@ export function WorkoutScreen({
 
       {rest && (
         <RestOverlay
+          key={`${rest.ei}-${rest.si}`}
           c={c}
           rest={rest}
           workout={w}
@@ -497,6 +502,10 @@ export function WorkoutScreen({
             tap();
             const next = updateEntry(rest.ei, (x) => applyFeel(x, rest.si, f));
             scheduleRestAlert(rest.endsAt, upNextText(next));
+          }}
+          onMore={(n) => {
+            tap();
+            updateEntry(rest.ei, (x) => addReps(x, rest.si, n));
           }}
           onDone={endRest}
         />
@@ -599,6 +608,7 @@ function EntryCard({
   onRemoveSet,
   onSwap,
   onDemo,
+  onMore,
 }: {
   c: Theme;
   entry: Entry;
@@ -612,12 +622,15 @@ function EntryCard({
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
   onFeel: (si: number, f: Feel) => void;
+  onMore: (si: number, n: number) => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
   onSwap: () => void;
   onDemo: () => void;
 }) {
   const ex = getExercise(entry.exerciseId);
+  /** The set whose "did more reps?" question was answered. */
+  const [moreAnswered, setMoreAnswered] = useState<number | null>(null);
   if (!ex) return null;
   const { target } = entry;
   const unit = unitLabel(ex.unit);
@@ -625,6 +638,8 @@ function EntryCard({
   const plateWeight = (entry.sets.find((x) => !x.done) ?? entry.sets.at(-1))?.weight ?? null;
   const lastDone = entry.sets.reduce((acc, x, i) => (x.done ? i : acc), -1);
   const askAt = ex.unit === "reps" && lastDone >= 0 && !entry.sets[lastDone].feel ? lastDone : -1;
+  // Ticked as suggested but rated Easy: one tap to log the reps actually done.
+  const moreAt = ex.unit === "reps" && lastDone >= 0 && entry.sets[lastDone].feel === "easy" && moreAnswered !== lastDone ? lastDone : -1;
   const restText = target.restSec >= 60 ? `${Math.floor(target.restSec / 60)}:${String(target.restSec % 60).padStart(2, "0")}` : `${target.restSec}s`;
   const warm = ex.load === "barbell" && !entry.sets.some((x) => x.done) && entry.sets[0]?.weight != null ? warmupSets(entry.sets[0].weight) : [];
 
@@ -720,6 +735,15 @@ function EntryCard({
                   ))}
                 </View>
               )}
+              {si === moreAt && (
+                <MoreReps
+                  c={c}
+                  onPick={(n) => {
+                    setMoreAnswered(si);
+                    if (n) onMore(si, n);
+                  }}
+                />
+              )}
             </View>
           );
         })}
@@ -748,8 +772,32 @@ function EntryCard({
   );
 }
 
-function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; rest: Rest; workout: Workout; onAdd: (sec: number) => void; onFeel: (f: Feel) => void; onDone: () => void }) {
+/** "Did more?" +1…+4 after an Easy rating, so a set ticked at the suggested reps can log what was really done. */
+function MoreReps({ c, onPick, hero }: { c: Theme; onPick: (n: number) => void; hero?: boolean }) {
+  const fg = hero ? "#fff" : c.text;
+  const sub = hero ? "rgba(255,255,255,0.75)" : c.muted;
+  return (
+    <View style={[s.row, { paddingLeft: hero ? 0 : 36, gap: 8 }]}>
+      <Text style={[s.small, { color: sub }]}>Did more?</Text>
+      {[1, 2, 3, 4].map((n) => (
+        <Pressable
+          key={n}
+          onPress={() => onPick(n)}
+          style={({ pressed }) => [hero ? s.heroBtn : s.feel, hero ? { flex: 1, backgroundColor: pressed ? "#fff" : "rgba(255,255,255,0.15)" } : { borderColor: c.line, backgroundColor: pressed ? c.accent : c.card }]}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "700", color: fg }}>+{n}</Text>
+        </Pressable>
+      ))}
+      <Pressable onPress={() => onPick(0)} hitSlop={8} accessibilityLabel="No, that was all">
+        <Text style={{ fontSize: 15, color: sub }}>No</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function RestOverlay({ c, rest, workout, onAdd, onFeel, onMore, onDone }: { c: Theme; rest: Rest; workout: Workout; onAdd: (sec: number) => void; onFeel: (f: Feel) => void; onMore: (n: number) => void; onDone: () => void }) {
   const [now, setNow] = useState(() => Date.now());
+  const [moreAnswered, setMoreAnswered] = useState(false);
   const [small, setSmall] = useState(false);
   const gutter = useGutter();
   const buzzed = useRef(false);
@@ -836,6 +884,16 @@ function RestOverlay({ c, rest, workout, onAdd, onFeel, onDone }: { c: Theme; re
                   ))}
                 </View>
               </View>
+            )}
+            {set?.feel === "easy" && ex?.unit === "reps" && !moreAnswered && (
+              <MoreReps
+                c={c}
+                hero
+                onPick={(n) => {
+                  setMoreAnswered(true);
+                  if (n) onMore(n);
+                }}
+              />
             )}
             {!!entry?.hint && set?.feel && <Text style={{ color: "#fff", fontSize: 15 }}>{entry.hint}</Text>}
             {next && (

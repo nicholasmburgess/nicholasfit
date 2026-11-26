@@ -1,6 +1,6 @@
 import type { Target } from "./types";
 
-export type RoutineItem = { exerciseId: string; target: Target };
+export type RoutineItem = { exerciseId: string; target: Target; /** Same group = superset. */ group?: string };
 export type Routine = { key: string; name: string; summary: string; items: RoutineItem[] };
 
 const t = (sets: number, repMin: number, repMax: number, restSec: number): Target => ({ sets, repMin, repMax, restSec });
@@ -13,10 +13,13 @@ export const ROUTINES: Routine[] = [
     summary: "Squat, bench, row, RDL, plank",
     items: [
       { exerciseId: "Goblet_Squat", target: t(3, 8, 12, 120) },
-      { exerciseId: "Barbell_Bench_Press_-_Medium_Grip", target: t(3, 8, 10, 120) },
+      { exerciseId: "Barbell_Bench_Press_-_Medium_Grip", target: t(4, 8, 10, 120) },
       { exerciseId: "Seated_Cable_Rows", target: t(3, 10, 12, 90) },
       { exerciseId: "Romanian_Deadlift", target: t(3, 10, 12, 90) },
       { exerciseId: "Plank", target: t(3, 30, 45, 60) },
+      // Arms superset on the cable stack (no dumbbell change): chest, biceps and triceps were the least-trained muscles.
+      { exerciseId: "Standing_Biceps_Cable_Curl", target: t(2, 10, 15, 60), group: "arms" },
+      { exerciseId: "Triceps_Pushdown_-_Rope_Attachment", target: t(2, 10, 15, 60), group: "arms" },
     ],
   },
   {

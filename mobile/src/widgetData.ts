@@ -101,11 +101,11 @@ let running: Promise<void> | null = null;
 let again = false;
 
 /** Refresh the widget now. Safe to call often: overlapping calls collapse into one more run. */
-export function refreshWidget(): void {
-  if (Platform.OS !== "ios") return;
+export function refreshWidget(): Promise<void> {
+  if (Platform.OS !== "ios") return Promise.resolve();
   if (running) {
     again = true;
-    return;
+    return running;
   }
   running = (async () => {
     try {
@@ -129,4 +129,5 @@ export function refreshWidget(): void {
       refreshWidget();
     }
   });
+  return running;
 }

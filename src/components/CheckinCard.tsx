@@ -18,6 +18,11 @@ export function CheckinCard({ c }: { c: Checkin }) {
             ` (need ${[c.needDays && `${c.needDays} more days`, c.needWeighIns && `${c.needWeighIns} more weigh-ins`].filter(Boolean).join(" and ")})`}
           .
         </p>
+        <p className="text-sm">
+          First check-in: <span className="font-semibold">{c.firstCheckin.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}</span> if you keep logging and weighing in daily.
+          Until then your target comes from the formula.
+        </p>
+        {c.partialDays > 0 && <p className="text-xs text-muted">{c.partialDays} part-logged {c.partialDays === 1 ? "day was" : "days were"} left out so they don&apos;t pull your target too low.</p>}
       </Card>
     );
 
@@ -49,7 +54,7 @@ export function CheckinCard({ c }: { c: Checkin }) {
         New daily target: <span className="font-semibold">{c.targets.kcal.toLocaleString("en-AU")} kcal</span> · {c.targets.protein} g protein
       </p>
       <p className="text-xs text-muted">
-        From the last 3 weeks ({c.loggedDays} full days logged, {c.weighIns} weigh-ins). Maintenance = average logged intake adjusted for your weight trend (about 6,000 kcal per kg, the measured value during a diet).
+        From the last 3 weeks ({c.loggedDays} full days logged, {c.weighIns} weigh-ins{c.partialDays > 0 ? `; ${c.partialDays} part-logged ${c.partialDays === 1 ? "day" : "days"} left out` : ""}). Maintenance = average logged intake adjusted for your weight trend (about 6,000 kcal per kg, the measured value during a diet).
         The formula guessed {c.formulaMaintenance.toLocaleString("en-AU")}. Because it&apos;s based on what you log, it also corrects for estimates that run consistently low.
       </p>
     </Card>

@@ -60,7 +60,12 @@ export async function GET(req: Request) {
     const term = SEARCH_AS[id] ?? stretch?.videoSearch ?? ex?.name ?? "";
     const found = await edb<Search>(`/api/v1/exercises/search?search=${encodeURIComponent(term)}`, key);
     // For a held stretch, only accept a clip that is itself a stretch, so we never loop the wrong move.
-    const hit = stretch?.kind === "hold" ? found?.data?.find((h) => /stretch|pose/i.test(h.name)) : found?.data?.[0];
+    // A stretch can also name the clip it must match, for moves that fuzzy search gets wrong.
+    const hit = stretch?.videoMatch
+      ? found?.data?.find((h) => stretch.videoMatch!.test(h.name))
+      : stretch?.kind === "hold"
+        ? found?.data?.find((h) => /stretch|pose/i.test(h.name))
+        : found?.data?.[0];
     if (!hit) return NextResponse.json({ video: null }, { headers: noStore });
     const detail = await edb<Detail>(`/api/v1/exercises/${encodeURIComponent(hit.exerciseId)}`, key);
     const video = detail?.data?.videoUrl;

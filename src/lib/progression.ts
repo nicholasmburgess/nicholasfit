@@ -34,10 +34,14 @@ const START_KG: Record<string, number> = {
   Seated_Cable_Rows: 20, "One-Arm_Dumbbell_Row": 10, Romanian_Deadlift: 30, Barbell_Deadlift: 40, Barbell_Hip_Thrust: 30,
   Dumbbell_Shoulder_Press: 6, Seated_Barbell_Military_Press: 20, "Barbell_Incline_Bench_Press_-_Medium_Grip": 20, Side_Lateral_Raise: 4, Cable_Seated_Lateral_Raise: 5, Cable_Rear_Delt_Fly: 5, "Wide-Grip_Lat_Pulldown": 25, "Close-Grip_Front_Lat_Pulldown": 25,
   Split_Squat_with_Dumbbells: 6, Face_Pull: 10, "One-Arm_Kettlebell_Swings": 12, "Triceps_Pushdown_-_Rope_Attachment": 10,
-  Hammer_Curls: 6, Dumbbell_Bicep_Curl: 6, Pallof_Press: 5,
+  Hammer_Curls: 6, Dumbbell_Bicep_Curl: 6, Pallof_Press: 5, Standing_Biceps_Cable_Curl: 10,
 };
 
-export function suggest(workouts: Workout[], exerciseId: string, target: Target): Suggestion {
+/** Days off before the next session repeats the last weight, and before it drops about 10%. */
+export const BREAK_DAYS = 10;
+export const LONG_BREAK_DAYS = 21;
+
+export function suggest(workouts: Workout[], exerciseId: string, target: Target, now = new Date()): Suggestion {
   const ex = getExercise(exerciseId);
   const history = exerciseHistory(workouts, exerciseId);
   const last = history[0];
@@ -57,48 +61,75 @@ export function suggest(workouts: Workout[], exerciseId: string, target: Target)
   const topSets = last.sets.filter((s) => (s.weight ?? 0) === weight);
   const minReps = Math.min(...topSets.map((s) => s.reps ?? 0));
   const hitTop = topSets.length >= target.sets && minReps >= target.repMax;
+  // Next rep goal: beat the first set at the top weight by one, so one tired last set doesn't lower the goal.
+  const repGoal = Math.min(target.repMax, Math.max(target.repMin, minReps + 1, topSets[0]?.reps ?? 0));
 
   if (unit !== "reps" || !ex || ex.increment === 0) {
     if (hitTop) return { weight: weight || null, reps: target.repMax, hint: unit === "reps" ? "Top of range hit: try a harder variation or add reps" : "Top of range hit: hold steady or add 5" };
     return { weight: weight || null, reps: Math.min(target.repMax, minReps + (unit === "seconds" ? 5 : 1)), hint: "Build toward the top of the range" };
   }
 
-  if (hitTop) {
+  // Back after a break: no jump on the first session back; after three weeks or more, ease in about 10% lighter.
+  const daysOff = (now.getTime() - Date.parse(last.workout.startedAt)) / 86400e3;
+  const step = ex.load === "barbell" ? 2.5 : 1;
+  if (daysOff >= LONG_BREAK_DAYS && weight > 0)
+    return { weight: round(weight * 0.9, step), reps: target.repMin, hint: `${Math.floor(daysOff)} days since last time: about 10% lighter to ease back in` };
+  if (daysOff >= BREAK_DAYS)
+    return { weight, reps: Math.min(target.repMax, Math.max(target.repMin, minReps)), hint: `${Math.floor(daysOff)} days since last time: same weight and reps to get back into it` };
+
+  // Every set felt easy (4+ reps left): the weight is too light, whatever the reps. Applies to the adjustable
+  // dumbbells/kettlebell too: the two-setting limit is within one workout, not between workouts.
+  const doneSets = last.sets.filter((s) => s.done);
+  const allEasy = doneSets.length >= 2 && doneSets.every((s) => s.feel === "easy");
+
+  if (hitTop || allEasy) {
     // Top of the range but the last set was a grind (0-1 reps left): repeat the weight once so the next
     // jump starts with reps in hand. A second time at the top moves up regardless, so a habit of rating
     // Hard can't stall progress.
     const prev = history[1];
     const prevTop = prev?.sets.filter((s) => (s.weight ?? 0) === weight) ?? [];
     const prevAtTop = prevTop.length >= target.sets && Math.min(...prevTop.map((s) => s.reps ?? 0)) >= target.repMax;
-    if (topSets.at(-1)?.feel === "hard" && !prevAtTop) {
+    if (hitTop && topSets.at(-1)?.feel === "hard" && !prevAtTop) {
       return { weight, reps: target.repMax, hint: `Same weight: you hit ${target.repMax} but the last set was a grind. Do it again with a rep or two left, then it goes up` };
     }
-    // While still finding a working weight (first few sessions), an easy last set earns a double step.
-    const calibrating = history.length <= 3 && topSets.at(-1)?.feel === "easy" && !isAdjustable(exerciseId);
-    const step = calibrating ? ex.increment * 2 : ex.increment;
+    // While still finding a working weight (first few sessions), an easy top-of-range session earns a double step.
+    const calibrating = hitTop && history.length <= 3 && topSets.at(-1)?.feel === "easy";
+    const up = calibrating ? ex.increment * 2 : ex.increment;
+    const each = ex.load === "dumbbell" ? " each" : "";
     return {
-      weight: weight + step,
+      weight: weight + up,
       reps: target.repMin,
-      hint: calibrating ? `Up ${step} kg: still finding your weight and the last set felt easy` : `Up ${step} kg: all sets hit ${target.repMax} last time`,
+      hint: calibrating
+        ? `Up ${up} kg${each}: still finding your weight and the last set felt easy`
+        : hitTop
+          ? `Up ${up} kg${each}: all sets hit ${target.repMax} last time`
+          : `Up ${up} kg${each}: every set felt easy last time`,
     };
   }
 
-  // Plateau: three sessions in a row at this weight without reaching the bottom of the rep range.
-  const stalled = history.slice(0, 3).filter((h) => {
+  // Plateau: three sessions in a row at this weight that started at it (not bumped up mid-workout) where most
+  // sets fell short of the range and reps didn't improve on the session before.
+  const stalledAt = (i: number) => {
+    const h = history[i];
+    if (!h) return false;
     const w = Math.max(...h.sets.map((s) => s.weight ?? 0));
-    const min = Math.min(...h.sets.filter((s) => (s.weight ?? 0) === w).map((s) => s.reps ?? 0));
-    return w === weight && min < target.repMin;
-  });
-  if (stalled.length === 3 && weight > 0) {
-    const step = ex.load === "barbell" ? 2.5 : 1;
+    if (w !== weight || (h.sets[0]?.weight ?? 0) !== w) return false;
+    const at = h.sets.filter((s) => (s.weight ?? 0) === w);
+    const short = at.filter((s) => (s.reps ?? 0) < target.repMin).length;
+    if (short * 2 <= at.length) return false;
+    const older = history[i + 1];
+    const total = (sets: SetLog[]) => sets.filter((s) => (s.weight ?? 0) === w).reduce((a, s) => a + (s.reps ?? 0), 0);
+    return !older || total(at) <= total(older.sets);
+  };
+  if (weight > 0 && stalledAt(0) && stalledAt(1) && stalledAt(2)) {
     return { weight: round(weight * 0.9, step), reps: target.repMin, hint: "Stuck for 3 sessions: dropped about 10% to build back up with good form" };
   }
-  if (stalled.length === 2 && stalled[0] === history[0] && stalled[1] === history[1]) {
+  if (stalledAt(0) && stalledAt(1)) {
     const reps = target.repMin;
     return { weight, reps, hint: `Same weight, aim for ${reps} reps. If it stalls again, the next session drops about 10%` };
   }
 
-  return { weight, reps: Math.min(target.repMax, Math.max(target.repMin, minReps + 1)), hint: `Same weight, aim for ${Math.min(target.repMax, Math.max(target.repMin, minReps + 1))} reps or more` };
+  return { weight, reps: repGoal, hint: `Same weight, aim for ${repGoal} reps or more` };
 }
 
 /** The most recent note written for this exercise, so it sticks from session to session. */
@@ -110,8 +141,8 @@ export function lastNote(workouts: Workout[], exerciseId: string): string | unde
   return note || undefined;
 }
 
-export function buildEntry(workouts: Workout[], exerciseId: string, target: Target, slot?: string): Entry {
-  const s = suggest(workouts, exerciseId, target);
+export function buildEntry(workouts: Workout[], exerciseId: string, target: Target, slot?: string, now = new Date()): Entry {
+  const s = suggest(workouts, exerciseId, target, now);
   const note = lastNote(workouts, exerciseId);
   return {
     exerciseId,
@@ -156,6 +187,11 @@ export function workoutSummary(w: Workout): [string, string] {
   return [first, second];
 }
 
+/** Log extra reps on a set that was ticked with the suggested number but felt easy. */
+export function addReps(entry: Entry, si: number, n: number): Entry {
+  return { ...entry, sets: entry.sets.map((s, j) => (j === si ? { ...s, reps: (s.reps ?? 0) + n } : s)) };
+}
+
 /**
  * After a set is rated, adjust the rest of this exercise: "easy" moves later sets up one step,
  * "hard" with reps short of the range moves them down. The adjustable dumbbell/kettlebell set
@@ -172,9 +208,11 @@ export function applyFeel(entry: Entry, si: number, feel: Feel): Entry {
     const hint = feel === "easy" ? "Felt easy: aim for 2 more reps on the next set" : reps < entry.target.repMin ? "Felt hard: rest a little longer before the next set" : entry.hint;
     return { ...entry, sets, hint };
   }
+  // Mid-workout changes are small: a 5 kg jump on a deadlift between sets is too much.
+  const inc = ex.load === "barbell" ? Math.min(ex.increment, 2.5) : ex.increment;
   let delta = 0;
-  if (feel === "easy") delta = ex.increment;
-  else if (reps < entry.target.repMin) delta = -ex.increment;
+  if (feel === "easy") delta = inc;
+  else if (reps < entry.target.repMin) delta = -inc;
   if (delta === 0) return { ...entry, sets };
   const from = s.weight;
   const to = Math.max(0, from + delta);

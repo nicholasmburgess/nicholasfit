@@ -1,5 +1,7 @@
 "use client";
 
+import { WEIGHTS_EVENT } from "@/components/WithingsAutoSync";
+import { sendReminders } from "@/lib/reminders-web";
 import { useCallback, useEffect, useState } from "react";
 import { ProfileForm, WeightForm } from "@/components/BodySetup";
 import { AiStatus } from "@/components/AiStatus";
@@ -59,6 +61,8 @@ export default function FoodPage() {
       setProfile(p);
       setWeights(w);
       setError(null);
+      // A meal or weigh-in just logged can cancel tonight's reminder.
+      if (offset === 0) sendReminders();
     } catch (e) {
       setError(foodError(e));
       setMeals([]);
@@ -68,6 +72,8 @@ export default function FoodPage() {
 
   useEffect(() => {
     load();
+    window.addEventListener(WEIGHTS_EVENT, load);
+    return () => window.removeEventListener(WEIGHTS_EVENT, load);
   }, [load]);
 
   // Opened from the iPhone widget's "Log food" (/food?log=1): jump to the logger, ready to type.

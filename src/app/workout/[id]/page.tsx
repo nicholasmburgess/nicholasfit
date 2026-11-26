@@ -15,7 +15,8 @@ import { describePlates, warmupSets } from "@/lib/plates";
 import { MAX_ADJUSTABLE_SETUPS, adjustableSetups, isAdjustable, planAdjustable } from "@/lib/adjustable";
 import { getExercise, unitLabel, weightLabel } from "@/lib/exercises";
 import { formatDate, formatDuration } from "@/lib/format";
-import { applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
+import { addReps, applyFeel, buildEntry, exerciseHistory } from "@/lib/progression";
+import { sendReminders } from "@/lib/reminders-web";
 import { bests, isLivePr } from "@/lib/records";
 import { linkNext, nextUp, restAfter, restSeconds, supersetBlocker, supersetLabel, unlink } from "@/lib/superset";
 import { DEFAULT_TARGET } from "@/lib/routines";
@@ -32,6 +33,8 @@ export default function WorkoutPage() {
   const [rest, setRest] = useState<{ endsAt: number; total: number } | null>(null);
   const [picking, setPicking] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
+  /** Entry just swapped in a routine: ask whether the swap is for today only or for good. */
+  const [swapAsk, setSwapAsk] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ ei: number; si: number; field: "weight" | "reps"; thenComplete?: boolean } | null>(null);
   const [editMode, setEditMode] = useState(false);
   const justFinished = useSearchParams().get("done") === "1";
@@ -161,7 +164,7 @@ export default function WorkoutPage() {
       setEditing({ ei, si, field: "weight", thenComplete: true });
       return;
     }
-    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? {} : { feel: undefined }) });
+    changeSet(ei, si, { done, reps: s.reps ?? e.goalReps ?? e.target.repMin, ...(weight !== undefined ? { weight } : {}), ...(done ? { doneAt: new Date().toISOString() } : { feel: undefined, doneAt: undefined }) });
     setTimeout(() => flushRef.current(), 0);
     if (!done) return;
     // In a superset, go straight to the partner exercise and rest after the round.
@@ -203,6 +206,7 @@ export default function WorkoutPage() {
     setRest(null);
     await store.saveWorkout(done);
     postNative({ type: "workoutFinished", id: done.id, name: done.name, startedAt: done.startedAt, finishedAt: done.finishedAt! });
+    sendReminders();
     router.replace(`/workout/${w.id}?done=1`);
     window.scrollTo(0, 0);
   }
@@ -271,8 +275,31 @@ export default function WorkoutPage() {
       <SyncNote />
 
       {w.entries.map((e, ei) => (
+        <div key={`${e.exerciseId}-${ei}`} className="space-y-2">
+        {swapAsk === ei && !readOnly && w.templateKey && e.slot && e.slot !== e.exerciseId && (
+          <div className="flex items-center gap-2 rounded-xl border border-accent/40 bg-card px-3 py-2 text-sm">
+            <span className="flex-1">Swap {getExercise(e.slot)?.name ?? "it"} for {getExercise(e.exerciseId)?.name}:</span>
+            <button
+              className="rounded-lg border border-line px-3 py-1.5 font-medium"
+              onClick={() => {
+                updateEntry(ei, (x) => ({ ...x, swapToday: true }));
+                setSwapAsk(null);
+              }}
+            >
+              Just today
+            </button>
+            <button
+              className="rounded-lg bg-accent px-3 py-1.5 font-semibold text-accent-ink"
+              onClick={() => {
+                updateEntry(ei, (x) => ({ ...x, swapToday: undefined }));
+                setSwapAsk(null);
+              }}
+            >
+              Keep it
+            </button>
+          </div>
+        )}
         <EntryCard
-          key={`${e.exerciseId}-${ei}`}
           entry={e}
           last={exerciseHistory(history, e.exerciseId)[0]?.sets}
           nextSi={nextUp(w)?.ei === ei ? nextUp(w)!.si : -1}
@@ -292,11 +319,16 @@ export default function WorkoutPage() {
             updateEntry(ei, (x) => applyFeel(x, si, f));
             setTimeout(() => flushRef.current(), 0);
           }}
+          onMore={(si, n) => {
+            updateEntry(ei, (x) => addReps(x, si, n));
+            setTimeout(() => flushRef.current(), 0);
+          }}
           onSwap={() => setSwapping(ei)}
           onAddSet={() => updateEntry(ei, (x) => ({ ...x, sets: [...x.sets, { weight: x.sets.at(-1)?.weight ?? null, reps: null, done: false }] }))}
           onRemoveSet={() => updateEntry(ei, (x) => ({ ...x, sets: x.sets.slice(0, -1) }))}
           onRemove={() => update((w) => ({ ...w, entries: unlink(w.entries, ei).filter((_, j) => j !== ei) }))}
         />
+        </div>
       ))}
 
       {!readOnly && (
@@ -323,6 +355,8 @@ export default function WorkoutPage() {
             if (!entry) return;
             setSwapping(null);
             updateEntry(ei, () => entry);
+            // A swap back to the routine's own exercise needs no question.
+            setSwapAsk(entry.slot && entry.slot !== exerciseId ? ei : null);
           }}
         />
       )}
@@ -397,6 +431,7 @@ function EntryCard({
   onEdit,
   onToggle,
   onFeel,
+  onMore,
   onSwap,
   onAddSet,
   onRemoveSet,
@@ -414,6 +449,7 @@ function EntryCard({
   onEdit: (si: number, field: "weight" | "reps") => void;
   onToggle: (si: number) => void;
   onFeel: (si: number, f: Feel) => void;
+  onMore: (si: number, n: number) => void;
   onSwap: () => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
@@ -422,6 +458,8 @@ function EntryCard({
   const ex = getExercise(entry.exerciseId);
   const [showDemo, setShowDemo] = useState(false);
   const [editingNote, setEditingNote] = useState(false);
+  /** The set whose "did more reps?" question was answered, so it isn't asked again. */
+  const [moreAnswered, setMoreAnswered] = useState<number | null>(null);
   if (!ex) return null;
   const { target } = entry;
   const unit = unitLabel(ex.unit);
@@ -430,6 +468,8 @@ function EntryCard({
   // Ask how the most recent completed set felt (reps-based exercises only).
   const lastDone = entry.sets.reduce((acc, s, i) => (s.done ? i : acc), -1);
   const askAt = ex.unit === "reps" && lastDone >= 0 && !entry.sets[lastDone].feel ? lastDone : -1;
+  // A set ticked as suggested but rated Easy: offer a one-tap way to log the reps actually done.
+  const moreAt = ex.unit === "reps" && lastDone >= 0 && entry.sets[lastDone].feel === "easy" && moreAnswered !== lastDone ? lastDone : -1;
   const rest = target.restSec >= 60 ? `${Math.floor(target.restSec / 60)}:${String(target.restSec % 60).padStart(2, "0")}` : `${target.restSec}s`;
 
   return (
@@ -510,9 +550,14 @@ function EntryCard({
             repsPlaceholder={entry.goalReps ? String(entry.goalReps) : `${target.repMin}–${target.repMax}`}
             readOnly={readOnly}
             askFeel={!readOnly && si === askAt}
+            askMore={!readOnly && si === moreAt}
             onEdit={(field) => onEdit(si, field)}
             onToggle={() => onToggle(si)}
             onFeel={(f) => onFeel(si, f)}
+            onMore={(n) => {
+              setMoreAnswered(si);
+              if (n) onMore(si, n);
+            }}
           />
         ))}
         {ex.load === "barbell" && plateWeight != null && !readOnly && (

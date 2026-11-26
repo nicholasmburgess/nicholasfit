@@ -91,13 +91,18 @@ export function recoverySummary(days: HealthDay[], now = new Date()) {
   const week = days.filter((d) => d.day > cut(7));
   const before = days.filter((d) => d.day <= cut(7) && d.day > cut(28));
   const r = (v: number | null, dp = 0) => (v == null ? null : Math.round(v * 10 ** dp) / 10 ** dp);
+  // Fewer than 10 earlier days is too thin a baseline to compare against (e.g. the first weeks of using the app).
+  const baselineDays = before.filter((d) => d.sleepMin != null || d.restingHr != null).length;
+  const thin = baselineDays < 10;
   return {
+    /** Earlier days with data; under 10 the "before" averages are left out. */
+    baselineDays,
     sleepHours: r(avg(week.map((d) => (d.sleepMin == null ? null : d.sleepMin / 60))), 1),
-    sleepHoursBefore: r(avg(before.map((d) => (d.sleepMin == null ? null : d.sleepMin / 60))), 1),
+    sleepHoursBefore: thin ? null : r(avg(before.map((d) => (d.sleepMin == null ? null : d.sleepMin / 60))), 1),
     restingHr: r(avg(week.map((d) => d.restingHr))),
-    restingHrBefore: r(avg(before.map((d) => d.restingHr))),
+    restingHrBefore: thin ? null : r(avg(before.map((d) => d.restingHr))),
     hrvMs: r(avg(week.map((d) => d.hrvMs))),
-    hrvMsBefore: r(avg(before.map((d) => d.hrvMs))),
+    hrvMsBefore: thin ? null : r(avg(before.map((d) => d.hrvMs))),
     steps: r(avg(week.map((d) => d.steps))),
   };
 }
